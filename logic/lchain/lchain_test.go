@@ -28,7 +28,6 @@ import (
 	"github.com/copernet/copernicus/service"
 	"github.com/copernet/copernicus/service/mining"
 	"github.com/copernet/copernicus/util"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"math"
 	"os"
@@ -53,6 +52,7 @@ func coinbaseScriptSigWithHeight(extraNonce uint, height int32) *script.Script {
 
 func generateDummyBlocks(scriptPubKey *script.Script, generate int, maxTries uint64,
 	preHeight int32, txs []*tx.Tx) ([]util.Hash, error) {
+
 	heightEnd := preHeight + int32(generate)
 	height := preHeight
 	nInnerLoopCount := uint32(0x100000)
@@ -88,8 +88,8 @@ func generateDummyBlocks(scriptPubKey *script.Script, generate int, maxTries uin
 		}
 
 		fNewBlock := false
-		if service.ProcessNewBlock(bk, true, &fNewBlock) != nil {
-			return nil, errors.New("ProcessNewBlock, block not accepted")
+		if err := service.ProcessNewBlock(bk, true, &fNewBlock); err != nil {
+			return nil, err
 		}
 
 		height++
@@ -146,7 +146,7 @@ func initTestEnv(t *testing.T, args []string) (dirpath string, err error) {
 	conf.Cfg.Chain.UtxoHashEndHeight = 1000
 
 	unitTestDataDirPath, err := conf.SetUnitTestDataDir(conf.Cfg)
-	t.Logf("test in temp dir: %s", unitTestDataDirPath)
+
 	if err != nil {
 		return "", err
 	}
@@ -200,8 +200,6 @@ func initTestEnv(t *testing.T, args []string) (dirpath string, err error) {
 
 	chain.InitGlobalChain(blkdb.GetInstance())
 	persist.InitPersistGlobal(blkdb.GetInstance())
-	tchain := chain.GetInstance()
-	*tchain = *chain.NewChain()
 
 	err = lchain.InitGenesisChain()
 	assert.Nil(t, err)
@@ -215,6 +213,35 @@ func initTestEnv(t *testing.T, args []string) (dirpath string, err error) {
 	return unitTestDataDirPath, nil
 }
 
+func cleanTestEnv() {
+	gChain := chain.GetInstance()
+	if gChain != nil {
+		*gChain = *chain.NewChain()
+	}
+}
+
+func TestGetUTXOStats(t *testing.T) {
+	// set params, don't modify!
+	model.SetRegTestParams()
+	// clear chain data of last test case
+	testDir, err := initTestEnv(t, []string{"--regtest"})
+	//_, err := initTestEnv(t, []string{"--regtest"})
+	assert.Nil(t, err)
+	defer os.RemoveAll(testDir)
+	defer cleanTestEnv()
+
+	pubKey := script.NewEmptyScript()
+	pubKey.PushOpCode(opcodes.OP_TRUE)
+
+	cdb := utxo.GetUtxoCacheInstance().(*utxo.CoinsLruCache).GetCoinsDB()
+
+	_, err = generateDummyBlocks(pubKey, 100, 1000000, 0, nil)
+	assert.Nil(t, err)
+
+	_, err = lchain.GetUTXOStats(cdb)
+	assert.Nil(t, err)
+}
+
 func TestActivateBestChain(t *testing.T) {
 	// set params, don't modify!
 	model.SetRegTestParams()
@@ -222,6 +249,7 @@ func TestActivateBestChain(t *testing.T) {
 	testDir, err := initTestEnv(t, []string{"--regtest"})
 	assert.Nil(t, err)
 	defer os.RemoveAll(testDir)
+	defer cleanTestEnv()
 
 	tChain := chain.GetInstance()
 
@@ -259,24 +287,4 @@ func TestActivateBestChain(t *testing.T) {
 	assert.Nil(t, err)
 	height = tChain.TipHeight()
 	assert.Equal(t, int32(103), height)
-}
-
-func TestGetUTXOStats(t *testing.T) {
-	// set params, don't modify!
-	model.SetRegTestParams()
-	// clear chain data of last test case
-	testDir, err := initTestEnv(t, []string{"--regtest"})
-	assert.Nil(t, err)
-	defer os.RemoveAll(testDir)
-
-	pubKey := script.NewEmptyScript()
-	pubKey.PushOpCode(opcodes.OP_TRUE)
-
-	cdb := utxo.GetUtxoCacheInstance().(*utxo.CoinsLruCache).GetCoinsDB()
-
-	_, err = generateDummyBlocks(pubKey, 100, 1000000, 0, nil)
-	assert.Nil(t, err)
-
-	_, err = lchain.GetUTXOStats(cdb)
-	assert.Nil(t, err)
 }

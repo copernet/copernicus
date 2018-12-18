@@ -20,6 +20,7 @@ func TestLocateBlocks(t *testing.T) {
 	testDir, err := initTestEnv(t, []string{"--regtest"})
 	assert.Nil(t, err)
 	defer os.RemoveAll(testDir)
+	defer cleanTestEnv()
 
 	pubKey := script.NewEmptyScript()
 	pubKey.PushOpCode(opcodes.OP_TRUE)
@@ -49,6 +50,7 @@ func TestLocateHeaders(t *testing.T) {
 	testDir, err := initTestEnv(t, []string{"--regtest"})
 	assert.Nil(t, err)
 	defer os.RemoveAll(testDir)
+	defer cleanTestEnv()
 
 	pubKey := script.NewEmptyScript()
 	pubKey.PushOpCode(opcodes.OP_TRUE)

@@ -6,16 +6,20 @@ package peer_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/tx"
+	"github.com/copernet/copernicus/model/utxo"
 	"github.com/copernet/copernicus/persist"
 	"github.com/copernet/copernicus/persist/blkdb"
+	"github.com/copernet/copernicus/persist/db"
 	"io"
 	"net"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -51,7 +55,7 @@ type conn struct {
 func TestMain(m *testing.M) {
 	conf.Cfg = conf.InitConfig([]string{})
 	initEnv()
-	os.Exit(m.Run())
+	defer os.Exit(m.Run())
 }
 
 // LocalAddr returns the local address for the connection.
@@ -233,6 +237,62 @@ func testPeer(t *testing.T, p *peer.Peer, s peerStats) {
 }
 
 func initEnv() {
+	var args []string
+	conf.Cfg = conf.InitConfig(args)
+
+	_, err := conf.SetUnitTestDataDir(conf.Cfg)
+
+	if err != nil {
+		panic("set unittestdir err")
+	}
+
+	if conf.Cfg.P2PNet.TestNet {
+		model.SetTestNetParams()
+	} else if conf.Cfg.P2PNet.RegTest {
+		model.SetRegTestParams()
+	}
+
+	//init log
+	logDir := filepath.Join(conf.DataDir, log.DefaultLogDirname)
+	if !conf.FileExists(logDir) {
+		err := os.MkdirAll(logDir, os.ModePerm)
+		if err != nil {
+			panic("Mkdir err")
+		}
+	}
+
+	logConf := struct {
+		FileName string `json:"filename"`
+		Level    int    `json:"level"`
+	}{
+		FileName: logDir + "/" + conf.Cfg.Log.FileName + ".log",
+		Level:    log.GetLevel(conf.Cfg.Log.Level),
+	}
+
+	configuration, err := json.Marshal(logConf)
+	if err != nil {
+		panic(err)
+	}
+	log.Init(string(configuration))
+
+	// Init UTXO DB
+	utxoDbCfg := &db.DBOption{
+		FilePath:  conf.DataDir + "/chainstate",
+		CacheSize: (1 << 20) * 8,
+		Wipe:      conf.Cfg.Reindex,
+	}
+	utxoConfig := utxo.UtxoConfig{Do: utxoDbCfg}
+	utxo.InitUtxoLruTip(&utxoConfig)
+
+	// Init blocktree DB
+	blkDbCfg := &db.DBOption{
+		FilePath:  conf.DataDir + "/blocks/index",
+		CacheSize: (1 << 20) * 8,
+		Wipe:      conf.Cfg.Reindex,
+	}
+	blkdbCfg := blkdb.BlockTreeDBConfig{Do: blkDbCfg}
+	blkdb.InitBlockTreeDB(&blkdbCfg)
+
 	chain.InitGlobalChain(blkdb.GetInstance())
 	persist.InitPersistGlobal(blkdb.GetInstance())
 
@@ -250,10 +310,10 @@ func initEnv() {
 	bIndex.ChainTxCount = 1
 	bIndex.AddStatus(blockindex.BlockHaveData)
 	bIndex.RaiseValidity(blockindex.BlockValidTransactions)
-	err := gChain.AddToIndexMap(bIndex)
-	if err != nil {
-		panic("AddToIndexMap fail")
-	}
+	gChain.AddToIndexMap(bIndex)
+	//if err != nil {
+	//	panic("AddToIndexMap fail")
+	//}
 
 	genesisIndex := gChain.FindBlockIndex(*gChain.GetParams().GenesisHash)
 	if genesisIndex == nil {

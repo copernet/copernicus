@@ -6,13 +6,13 @@ import (
 	"fmt"
 	"github.com/copernet/copernicus/log"
 	"github.com/copernet/copernicus/model/blockindex"
+	"github.com/copernet/copernicus/model/script"
 	"github.com/copernet/copernicus/model/utxo"
 	"github.com/copernet/copernicus/persist"
 	"github.com/copernet/copernicus/persist/blkdb"
 	"github.com/copernet/copernicus/persist/db"
 	"github.com/copernet/copernicus/persist/disk"
 	"gopkg.in/fatih/set.v0"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -23,78 +23,10 @@ import (
 	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/pow"
-	"github.com/copernet/copernicus/model/script"
 	"github.com/copernet/copernicus/util"
 	"math/big"
 	"testing"
 )
-
-func makeTestBlockTreeDB() {
-	var args []string
-	conf.Cfg = conf.InitConfig(args)
-	if conf.Cfg == nil {
-		fmt.Println("please run `./copernicus -h` for usage.")
-		os.Exit(0)
-	}
-
-	if conf.Cfg.P2PNet.TestNet {
-		model.SetTestNetParams()
-	} else if conf.Cfg.P2PNet.RegTest {
-		model.SetRegTestParams()
-	}
-
-	pow.UpdateMinimumChainWork()
-	conf.DataDir = conf.DataDir + "/test"
-	fmt.Println("Current data dir:\033[0;32m", conf.DataDir, "\033[0m")
-
-	//init log
-	logDir := filepath.Join(conf.DataDir, log.DefaultLogDirname)
-	if !conf.FileExists(logDir) {
-		err := os.MkdirAll(logDir, os.ModePerm)
-		if err != nil {
-			panic("logdir create failed: " + err.Error())
-		}
-	}
-
-	logConf := struct {
-		FileName string `json:"filename"`
-		Level    int    `json:"level"`
-	}{
-		FileName: logDir + "/" + conf.Cfg.Log.FileName + ".log",
-		Level:    log.GetLevel(conf.Cfg.Log.Level),
-	}
-
-	configuration, err := json.Marshal(logConf)
-	if err != nil {
-		panic(err)
-	}
-	log.Init(string(configuration))
-
-	// Init UTXO DB
-	utxoDbCfg := &db.DBOption{
-		FilePath:  conf.DataDir + "/chainstate",
-		CacheSize: (1 << 20) * 8,
-		Wipe:      conf.Cfg.Reindex,
-	}
-	utxoConfig := utxo.UtxoConfig{Do: utxoDbCfg}
-	utxo.InitUtxoLruTip(&utxoConfig)
-
-	blkDbCfg := &db.DBOption{
-		FilePath:  conf.DataDir + "/blocks/index",
-		CacheSize: (1 << 20) * 8,
-		Wipe:      conf.Cfg.Reindex,
-	}
-	blkdbCfg := blkdb.BlockTreeDBConfig{Do: blkDbCfg}
-	blkdb.InitBlockTreeDB(&blkdbCfg)
-
-}
-
-func TestMain(m *testing.M) {
-	makeTestBlockTreeDB()
-	persist.InitPersistGlobal(blkdb.GetInstance())
-	conf.Cfg = conf.InitConfig([]string{})
-	os.Exit(m.Run())
-}
 
 func getBlockIndexSimple(indexPrev *blockindex.BlockIndex, timeInterval int64, bits uint32) *blockindex.BlockIndex {
 	blockIdx := new(blockindex.BlockIndex)
@@ -109,7 +41,13 @@ func getBlockIndexSimple(indexPrev *blockindex.BlockIndex, timeInterval int64, b
 }
 
 func TestChain_Simple(t *testing.T) {
-	InitGlobalChain(blkdb.GetInstance())
+	testDir, err := initTestEnv(t, []string{""})
+	if err != nil {
+		t.Errorf("initTestEnv Error")
+	}
+	defer os.RemoveAll(testDir)
+	defer cleanTestEnv()
+
 	tChain := GetInstance()
 
 	tChain.indexMap = make(map[util.Hash]*blockindex.BlockIndex)
@@ -118,10 +56,11 @@ func TestChain_Simple(t *testing.T) {
 	tChain.branch = make([]*blockindex.BlockIndex, 0)
 	initBits := model.ActiveNetParams.PowLimitBits
 	timePerBlock := int64(model.ActiveNetParams.TargetTimePerBlock)
-	height := 0
+	var height int
 
 	//Pile up some blocks
 	bIndex[0] = blockindex.NewBlockIndex(&model.ActiveNetParams.GenesisBlock.Header)
+	fmt.Printf("bIndex[0]'s hash: %s", bIndex[0].GetBlockHash())
 	tChain.AddToBranch(bIndex[0])
 	tChain.AddToIndexMap(bIndex[0])
 	tChain.SetTip(bIndex[0])
@@ -145,7 +84,9 @@ func TestChain_Simple(t *testing.T) {
 		t.Errorf("Genesis expect: %s, actual: %s", bIndex[0].GetBlockHash(), tChain.Genesis().GetBlockHash())
 	}
 	if tChain.FindHashInActive(model.GenesisBlockHash) != bIndex[0] {
-		t.Errorf("FindHashInActive Error")
+		t.Errorf("FindHashInActive Error, testDir: %s, model.GenesisBlockHash: %s, bIndex: %v, bIndex[0]: %v,"+
+			" bIndex[0]'s hash: %s", testDir, model.GenesisBlockHash.String(), bIndex, bIndex[0],
+			bIndex[0].GetBlockHash().String())
 	}
 	if tChain.FindBlockIndex(model.GenesisBlockHash) != bIndex[0] {
 		t.Errorf("FindHashInActive Error")
@@ -202,8 +143,13 @@ func TestChain_Simple(t *testing.T) {
 }
 
 func TestChain_Fork(t *testing.T) {
-	//makeTestBlockTreeDB()
-	InitGlobalChain(blkdb.GetInstance())
+	testDir, err := initTestEnv(t, []string{""})
+	if err != nil {
+		t.Errorf("initTestEnv Error")
+	}
+	defer os.RemoveAll(testDir)
+	defer cleanTestEnv()
+
 	tChain := GetInstance()
 
 	tChain.indexMap = make(map[util.Hash]*blockindex.BlockIndex)
@@ -212,7 +158,7 @@ func TestChain_Fork(t *testing.T) {
 	bIndex := make([]*blockindex.BlockIndex, 50)
 	initBits := model.ActiveNetParams.PowLimitBits
 	timePerBlock := int64(model.ActiveNetParams.TargetTimePerBlock)
-	height := 0
+	var height int
 
 	//Pile up some blocks
 	bIndex[0] = blockindex.NewBlockIndex(&model.ActiveNetParams.GenesisBlock.Header)
@@ -248,7 +194,14 @@ func TestChain_Fork(t *testing.T) {
 
 func TestChain_InitLoad(t *testing.T) {
 	//makeTestBlockTreeDB()
-	InitGlobalChain(blkdb.GetInstance())
+	//InitGlobalChain(blkdb.GetInstance())
+	testDir, err := initTestEnv(t, []string{"--regtest"})
+	if err != nil {
+		t.Errorf("initTestEnv Error")
+	}
+	defer os.RemoveAll(testDir)
+	defer cleanTestEnv()
+
 	tChain := GetInstance()
 	tChain.ClearActive()
 
@@ -258,7 +211,7 @@ func TestChain_InitLoad(t *testing.T) {
 	tChain.branch = make([]*blockindex.BlockIndex, 0)
 	initBits := model.ActiveNetParams.PowLimitBits
 	timePerBlock := int64(model.ActiveNetParams.TargetTimePerBlock)
-	height := 0
+	var height int
 
 	tChain.InitLoad(tChain.indexMap, tChain.branch)
 	if tChain.Genesis() != nil {
@@ -326,7 +279,16 @@ func TestChain_InitLoad(t *testing.T) {
 
 func TestChain_GetBlockScriptFlags(t *testing.T) {
 	//makeTestBlockTreeDB()
-	InitGlobalChain(blkdb.GetInstance())
+	//InitGlobalChain(blkdb.GetInstance())
+	//testDir, err := initTestEnv(t, []string{"--regtest"})
+	testDir, err := initTestEnv(t, []string{"--regtest"})
+	if err != nil {
+		t.Errorf("initTestEnv Error")
+	}
+	defer os.RemoveAll(testDir)
+	defer cleanTestEnv()
+	//model.SetRegTestParams()
+
 	testChain := GetInstance()
 	timePerBlock := int64(model.ActiveNetParams.TargetTimePerBlock)
 	initBits := model.ActiveNetParams.PowLimitBits
@@ -341,7 +303,7 @@ func TestChain_GetBlockScriptFlags(t *testing.T) {
 	}
 	expect := script.ScriptVerifyNone
 	if flag := testChain.GetBlockScriptFlags(blockIdx[19]); flag != uint32(expect) {
-		t.Errorf("GetBlockScriptFlags wrong: %d", flag)
+		t.Errorf("GetBlockScriptFlags wrong, flag: %d, expect: %d", flag, expect)
 	}
 
 	blockIdx = make([]*blockindex.BlockIndex, 100)
@@ -354,7 +316,7 @@ func TestChain_GetBlockScriptFlags(t *testing.T) {
 	}
 	expect |= script.ScriptVerifyP2SH
 	if flag := testChain.GetBlockScriptFlags(blockIdx[19]); flag != uint32(expect) {
-		t.Errorf("GetBlockScriptFlags wrong: %d", flag)
+		t.Errorf("GetBlockScriptFlags wrong, flag: %d, expect: %d", flag, expect)
 	}
 
 	blockIdx = make([]*blockindex.BlockIndex, 100)
@@ -367,7 +329,7 @@ func TestChain_GetBlockScriptFlags(t *testing.T) {
 	}
 	expect |= script.ScriptVerifyDersig
 	if flag := testChain.GetBlockScriptFlags(blockIdx[19]); flag != uint32(expect) {
-		t.Errorf("GetBlockScriptFlags wrong: %d", flag)
+		t.Errorf("GetBlockScriptFlags wrong, flag: %d, expect: %d", flag, expect)
 	}
 
 	blockIdx = make([]*blockindex.BlockIndex, 100)
@@ -380,14 +342,22 @@ func TestChain_GetBlockScriptFlags(t *testing.T) {
 	}
 	expect |= script.ScriptVerifyCheckLockTimeVerify
 	if flag := testChain.GetBlockScriptFlags(blockIdx[19]); flag != uint32(expect) {
-		t.Errorf("GetBlockScriptFlags wrong: %d", flag)
+		t.Errorf("GetBlockScriptFlags wrong, flag: %d, expect: %d", flag, expect)
 	}
 }
 
 func TestBuildForwardTree(t *testing.T) {
-	globalChain = nil
+	//globalChain = nil
 	//makeTestBlockTreeDB()
-	InitGlobalChain(blkdb.GetInstance())
+	//InitGlobalChain(blkdb.GetInstance())
+
+	testDir, err := initTestEnv(t, []string{"--regtest"})
+	if err != nil {
+		t.Errorf("initTestEnv Error")
+	}
+	defer os.RemoveAll(testDir)
+	defer cleanTestEnv()
+
 	testChain := GetInstance()
 	testChain.indexMap = make(map[util.Hash]*blockindex.BlockIndex)
 	blockIdx := make([]*blockindex.BlockIndex, 50)
@@ -463,61 +433,73 @@ func cleanBlkFile(number int) {
 	}
 }
 
-var pathblockdb string
-var pathutxodb string
+func initTestEnv(t *testing.T, args []string) (dirpath string, err error) {
+	//model.SetRegTestParams()
+	conf.Cfg = conf.InitConfig(args)
+	unitTestDataDirPath, err := conf.SetUnitTestDataDir(conf.Cfg)
 
-func initBlockDB() {
-	var err error
-	pathblockdb, err = ioutil.TempDir("/tmp", "blockindextest")
 	if err != nil {
-		panic(fmt.Sprintf("generate temp db path failed: %s\n", err))
-	}
-	bc := &blkdb.BlockTreeDBConfig{
-		Do: &db.DBOption{
-			FilePath:  pathblockdb,
-			CacheSize: 1 << 20,
-		},
+		return "", err
 	}
 
-	blkdb.InitBlockTreeDB(bc)
-}
+	if conf.Cfg.P2PNet.TestNet {
+		model.SetTestNetParams()
+	} else if conf.Cfg.P2PNet.RegTest {
+		model.SetRegTestParams()
+	}
 
-func initUtxoDB() {
-	var err error
-	pathutxodb, err = ioutil.TempDir("/tmp", "utxotest")
+	//init log
+	logDir := filepath.Join(conf.DataDir, log.DefaultLogDirname)
+	if !conf.FileExists(logDir) {
+		err := os.MkdirAll(logDir, os.ModePerm)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	logConf := struct {
+		FileName string `json:"filename"`
+		Level    int    `json:"level"`
+	}{
+		FileName: logDir + "/" + conf.Cfg.Log.FileName + ".log",
+		Level:    log.GetLevel(conf.Cfg.Log.Level),
+	}
+
+	configuration, err := json.Marshal(logConf)
 	if err != nil {
-		panic(fmt.Sprintf("generate temp db path failed: %s\n", err))
+		panic(err)
 	}
+	log.Init(string(configuration))
 
-	dbo := db.DBOption{
-		FilePath:       pathutxodb,
-		CacheSize:      1 << 20,
-		Wipe:           false,
-		DontObfuscate:  false,
-		ForceCompactdb: false,
+	// Init UTXO DB
+	utxoDbCfg := &db.DBOption{
+		FilePath:  conf.DataDir + "/chainstate",
+		CacheSize: (1 << 20) * 8,
+		Wipe:      conf.Cfg.Reindex,
 	}
+	utxoConfig := utxo.UtxoConfig{Do: utxoDbCfg}
+	utxo.InitUtxoLruTip(&utxoConfig)
 
-	uc := &utxo.UtxoConfig{
-		Do: &dbo,
+	// Init blocktree DB
+	blkDbCfg := &db.DBOption{
+		FilePath:  conf.DataDir + "/blocks/index",
+		CacheSize: (1 << 20) * 8,
+		Wipe:      conf.Cfg.Reindex,
 	}
-	utxo.InitUtxoLruTip(uc)
-}
+	blkdbCfg := blkdb.BlockTreeDBConfig{Do: blkDbCfg}
+	blkdb.InitBlockTreeDB(&blkdbCfg)
 
-func initEnv() {
-	model.SetRegTestParams()
-	conf.Cfg = &conf.Configuration{}
-	conf.DataDir = "/tmp"
-	initBlockDB()
 	InitGlobalChain(blkdb.GetInstance())
-	//gChain := chain.GetInstance()
-	//gChain.SetTip(nil)
-	initUtxoDB()
 	persist.InitPersistGlobal(blkdb.GetInstance())
+
+	return unitTestDataDirPath, nil
 }
 
-func cleanEnv() {
-	os.RemoveAll(pathblockdb)
-	os.RemoveAll(pathutxodb)
+func cleanTestEnv() {
+	gChain := GetInstance()
+	if gChain != nil {
+		*gChain = *NewChain()
+	}
 }
 
 func initGenesis() {
@@ -541,8 +523,13 @@ func initGenesis() {
 }
 
 func TestLoadBlockIndexDB_EmptyDB(t *testing.T) {
-	initEnv()
-	defer cleanEnv()
+
+	testDir, err := initTestEnv(t, []string{"--regtest"})
+	if err != nil {
+		t.Errorf("initTestEnv Error")
+	}
+	defer os.RemoveAll(testDir)
+	defer cleanTestEnv()
 
 	c := GetInstance()
 	ret := c.loadBlockIndex(blkdb.GetInstance())
@@ -599,8 +586,14 @@ func getBlockIndex(indexPrev *blockindex.BlockIndex, timeInterval int64, bits ui
 }
 
 func TestLoadBlockIndexDB_HasIndexNoFork(t *testing.T) {
-	initEnv()
-	defer cleanEnv()
+
+	testDir, err := initTestEnv(t, []string{"--regtest"})
+	if err != nil {
+		t.Errorf("initTestEnv Error")
+	}
+	defer os.RemoveAll(testDir)
+	defer cleanTestEnv()
+
 	initGenesis()
 
 	blocknumber := 10
@@ -630,14 +623,14 @@ func TestLoadBlockIndexDB_HasIndexNoFork(t *testing.T) {
 	}
 
 	btd := blkdb.GetInstance()
-	err := btd.WriteBatchSync(fileInfoList, lastFile, blockIdx)
+	err = btd.WriteBatchSync(fileInfoList, lastFile, blockIdx)
 	if err != nil {
 		t.Errorf("write blockindex fail")
 	}
-	ret := gChain.loadBlockIndex(blkdb.GetInstance())
-	if !ret {
-		t.Errorf("load fail")
-	}
+	//ret := gChain.loadBlockIndex(blkdb.GetInstance())
+	//if !ret {
+	//	t.Errorf("load fail")
+	//}
 	size := gChain.IndexMapSize()
 	if size != blocknumber {
 		t.Errorf("block number not equal")
@@ -676,8 +669,14 @@ func TestLoadBlockIndexDB_HasIndexNoFork(t *testing.T) {
 
 func TestLoadBlockIndexDB_HasIndexNoForkMoreFile(t *testing.T) {
 	//makeTestBlockTreeDB()
-	initEnv()
-	defer cleanEnv()
+
+	testDir, err := initTestEnv(t, []string{"--regtest"})
+	if err != nil {
+		t.Errorf("initTestEnv Error")
+	}
+	defer os.RemoveAll(testDir)
+	defer cleanTestEnv()
+
 	initGenesis()
 
 	blocknumber := 10
@@ -707,7 +706,7 @@ func TestLoadBlockIndexDB_HasIndexNoForkMoreFile(t *testing.T) {
 	}
 
 	btd := blkdb.GetInstance()
-	err := btd.WriteBatchSync(fileInfoList, lastFile, blockIdx)
+	err = btd.WriteBatchSync(fileInfoList, lastFile, blockIdx)
 	if err != nil {
 		t.Errorf("write blockindex fail")
 	}
@@ -754,8 +753,14 @@ func TestLoadBlockIndexDB_HasIndexNoForkMoreFile(t *testing.T) {
 }
 
 func TestLoadBlockIndexDB_HasFork(t *testing.T) {
-	initEnv()
-	defer cleanEnv()
+
+	testDir, err := initTestEnv(t, []string{"--regtest"})
+	if err != nil {
+		t.Errorf("initTestEnv Error")
+	}
+	defer os.RemoveAll(testDir)
+	defer cleanTestEnv()
+
 	initGenesis()
 
 	blocknumber := 10
@@ -792,7 +797,7 @@ func TestLoadBlockIndexDB_HasFork(t *testing.T) {
 	}
 
 	btd := blkdb.GetInstance()
-	err := btd.WriteBatchSync(fileInfoList, lastFile, blockIdx)
+	err = btd.WriteBatchSync(fileInfoList, lastFile, blockIdx)
 	if err != nil {
 		t.Errorf("write blockindex fail")
 	}
@@ -839,8 +844,14 @@ func TestLoadBlockIndexDB_HasFork(t *testing.T) {
 }
 
 func TestCheckIndexAgainstCheckpoint_HaveCheckpoint(t *testing.T) {
-	initEnv()
-	defer cleanEnv()
+
+	testDir, err := initTestEnv(t, []string{"--regtest"})
+	if err != nil {
+		t.Errorf("initTestEnv Error")
+	}
+	defer os.RemoveAll(testDir)
+	defer cleanTestEnv()
+
 	initGenesis()
 
 	gChain := GetInstance()
@@ -865,7 +876,7 @@ func TestCheckIndexAgainstCheckpoint_HaveCheckpoint(t *testing.T) {
 	params.Checkpoints = append(params.Checkpoints, &model.Checkpoint{Height: 3, Hash: blockIdx[3].GetBlockHash()})
 	params.Checkpoints = append(params.Checkpoints, &model.Checkpoint{Height: 6, Hash: blockIdx[6].GetBlockHash()})
 
-	err := gChain.CheckIndexAgainstCheckpoint(blockIdx[4])
+	err = gChain.CheckIndexAgainstCheckpoint(blockIdx[4])
 	if err == nil {
 		t.Errorf("idx[4] should ret error")
 	}

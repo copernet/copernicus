@@ -3,14 +3,22 @@ package chain
 import (
 	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/blockindex"
-	"github.com/copernet/copernicus/persist/blkdb"
 	"github.com/copernet/copernicus/util"
+	"os"
 	"testing"
 )
 
 func TestChain_GetLocator(t *testing.T) {
-	makeTestBlockTreeDB()
-	InitGlobalChain(blkdb.GetInstance())
+
+	//InitGlobalChain(blkdb.GetInstance())
+
+	testDir, err := initTestEnv(t, []string{"--regtest"})
+	if err != nil {
+		t.Errorf("initTestEnv Error")
+	}
+	defer os.RemoveAll(testDir)
+	defer cleanTestEnv()
+
 	tChain := GetInstance()
 
 	tChain.indexMap = make(map[util.Hash]*blockindex.BlockIndex)
@@ -19,7 +27,7 @@ func TestChain_GetLocator(t *testing.T) {
 	bIndex := make([]*blockindex.BlockIndex, 50)
 	initBits := model.ActiveNetParams.PowLimitBits
 	timePerBlock := int64(model.ActiveNetParams.TargetTimePerBlock)
-	height := 0
+	var height int
 
 	//Pile up some blocks
 	bIndex[0] = blockindex.NewBlockIndex(&model.ActiveNetParams.GenesisBlock.Header)
@@ -28,7 +36,7 @@ func TestChain_GetLocator(t *testing.T) {
 	tChain.active = append(tChain.active, bIndex[0])
 
 	for height = 1; height < 50; height++ {
-		bIndex[height] = getBlockIndex(bIndex[height-1], timePerBlock, initBits)
+		bIndex[height] = getBlockIndexSimple(bIndex[height-1], timePerBlock, initBits)
 		tChain.AddToBranch(bIndex[height])
 		tChain.AddToIndexMap(bIndex[height])
 		tChain.active = append(tChain.active, bIndex[height])
