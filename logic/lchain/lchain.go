@@ -385,9 +385,6 @@ func DisconnectTip(fBare bool, pool *mempool.TxMempool) error {
 	UpdateTip(tip.Prev)
 
 	if !fBare {
-		// Resurrect mempool transactions from the disconnected block.
-		pool.RemoveTxRecursive(blk.Txs[0], mempool.REORG)
-
 		txs := blk.Txs
 		if model.IsMagneticAnomalyEnabled(tip.GetMedianTimePast()) {
 			newtxs, err := lmempool.TTORSort(txs)
@@ -397,7 +394,8 @@ func DisconnectTip(fBare bool, pool *mempool.TxMempool) error {
 				txs = newtxs
 			}
 		}
-		lmempool.AddTxFromUndoBlock(pool, txs[1:])
+		// Resurrect mempool transactions from the disconnected block.
+		lmempool.HandleTxFromUndoBlock(pool, txs)
 	}
 	gChain.SendNotification(chain.NTBlockDisconnected, blk)
 	return nil

@@ -220,7 +220,7 @@ func (wtx *WalletTx) GetUnspentCoin(index int) *utxo.Coin {
 	}
 	outPoint := outpoint.NewOutPoint(wtx.GetHash(), uint32(index))
 	if coin := mempool.GetInstance().GetCoin(outPoint); coin != nil {
-		if mempool.GetInstance().HasSpentOut(outPoint) {
+		if mempool.GetInstance().HasSpentOut(outPoint, true) {
 			return nil
 		}
 		return coin

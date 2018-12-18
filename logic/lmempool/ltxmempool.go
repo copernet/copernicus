@@ -19,22 +19,25 @@ import (
 	"github.com/copernet/copernicus/util"
 )
 
-func AcceptTxToMemPool(pool *mempool.TxMempool, txn *tx.Tx) error {
+func AcceptTxToMemPool(pool *mempool.TxMempool, txn *tx.Tx, lock bool) error {
+	if lock {
+		pool.Lock()
+		defer pool.Unlock()
+	}
 	txEntry, err := ltx.CheckTxBeforeAcceptToMemPool(txn, pool)
 	if err != nil {
 		return err
 	}
-	pool.Lock()
-	defer pool.Unlock()
 	return addTxToMemPoolUnchecked(pool, txEntry)
 }
 
-// AcceptNewTxToMempool only accept tx from network
+// AcceptNewTxToMempool only accept tx from network. Inside this function pool.Lock will be held.
 func AcceptNewTxToMempool(pool *mempool.TxMempool, txn *tx.Tx,
 	bestChainHeight int32, nodeID int64) (accepted []*tx.Tx, missed []util.Hash, rejected []util.Hash, err error) {
 
 	defer CheckMempool(pool, bestChainHeight)
-
+	pool.Lock()
+	defer pool.Unlock()
 	txEntry, err := ltx.CheckTxBeforeAcceptToMemPool(txn, pool)
 	if err != nil {
 		if errcode.IsErrorCode(err, errcode.TxErrNoPreviousOut) && !txn.AnyInputTxIn(pool.RejectedTxs) {
@@ -45,9 +48,7 @@ func AcceptNewTxToMempool(pool *mempool.TxMempool, txn *tx.Tx,
 		pool.RejectedTxs[txn.GetHash()] = struct{}{}
 		return nil, nil, []util.Hash{txn.GetHash()}, err
 	}
-	// FIXME: use only do lock once in current function
-	pool.Lock()
-	defer pool.Unlock()
+
 	err = addTxToMemPoolUnchecked(pool, txEntry)
 	if err == nil {
 		if !pool.HaveTransaction(txn) {
@@ -104,6 +105,7 @@ func updateMempoolForReorgAddTx(pool *mempool.TxMempool, txEntry *mempool.TxEntr
 	pool.StatisticIncrease(txEntry, nil, descendants)
 }
 
+// TryAcceptOrphansTxs handle orhpan tx which refer to @transaction. pool.Lock will NOT be held.
 func TryAcceptOrphansTxs(pool *mempool.TxMempool, transaction *tx.Tx, chainHeight int32, checkLockPoint bool) (acceptTxs []*tx.Tx, rejectTxs []util.Hash) {
 	vWorkQueue := make([]outpoint.OutPoint, 0)
 
@@ -118,12 +120,7 @@ func TryAcceptOrphansTxs(pool *mempool.TxMempool, transaction *tx.Tx, chainHeigh
 		vWorkQueue = vWorkQueue[1:]
 		if orphans, ok := pool.OrphanTransactionsByPrev[prevOut]; ok {
 			for _, iOrphanTx := range orphans {
-				// fromPeer := iOrphanTx.NodeID
-				// if _, ok := setMisbehaving[fromPeer]; ok {
-				// 	continue
-				// }
-
-				err := AcceptTxToMemPool(pool, iOrphanTx.Tx)
+				err := AcceptTxToMemPool(pool, iOrphanTx.Tx, false)
 				if err == nil {
 					acceptTxs = append(acceptTxs, iOrphanTx.Tx)
 					for i := 0; i < iOrphanTx.Tx.GetOutsCount(); i++ {
@@ -151,24 +148,28 @@ func RemoveTxSelf(pool *mempool.TxMempool, txs []*tx.Tx) {
 	pool.RemoveTxSelf(txs)
 }
 
-func AddTxFromUndoBlock(pool *mempool.TxMempool, txs []*tx.Tx) {
+// HandleTxFromUndoBlock remove txs which refert to coinbase tx and add ordinary tx back to mempool.
+// pool.lock will be held.
+func HandleTxFromUndoBlock(pool *mempool.TxMempool, txs []*tx.Tx) {
 	acceptedTx := make([]*mempool.TxEntry, 0, len(txs))
+
+	pool.Lock()
+	// remove txs which refer to coinbase tx.
+	pool.RemoveTxRecursive(txs[0], mempool.REORG)
 
 	for _, txn := range txs {
 		if txn.IsCoinBase() {
 			continue
 		}
+
 		txEntry, err := ltx.CheckTxBeforeAcceptToMemPool(txn, pool)
 		if err != nil {
-			// error by tx from unblock is acceptable.
-			log.Info("AddUndoBlockTx: CheckTxBeforeAcceptToMemPool tx(%s) from undoblock err:%v",
+			log.Warn("AddUndoBlockTx: CheckTxBeforeAcceptToMemPool tx(%s) from undoblock err:%v",
 				txn.GetHash(), err)
 			continue
 		}
-		// tx will never orphan here.
-		err = addTxToMemPoolUnchecked(pool, txEntry)
-		if err != nil {
-			log.Info("AddUndoBlockTx: addTxToMemPool tx(%s) from undoblock err:%v",
+		if err := addTxToMemPoolUnchecked(pool, txEntry); err != nil {
+			log.Warn("AddUndoBlockTx: addTxToMemPoolUnchecked tx(%s) from undoblock err:%v",
 				txn.GetHash(), err)
 			continue
 		}
@@ -179,6 +180,7 @@ func AddTxFromUndoBlock(pool *mempool.TxMempool, txs []*tx.Tx) {
 	for _, txent := range acceptedTx {
 		updateMempoolForReorgAddTx(pool, txent)
 	}
+	pool.Unlock()
 }
 
 // func RemoveForReorg(nMemPoolHeight int32, flag int) {
@@ -467,7 +469,7 @@ func CheckMempool(pool *mempool.TxMempool, bestChainHeight int32) {
 }
 
 func FindTxInMempool(pool *mempool.TxMempool, hash util.Hash) *mempool.TxEntry {
-	return pool.FindTx(hash)
+	return pool.FindTx(hash, true)
 }
 
 func FindOrphanTxInMemPool(pool *mempool.TxMempool, hash util.Hash) *tx.Tx {

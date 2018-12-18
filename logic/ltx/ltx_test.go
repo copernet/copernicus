@@ -1558,7 +1558,7 @@ func Test_already_exists_tx_should_NOT_be_accepted_into_mempool(t *testing.T) {
 
 	blocks := generateTestBlocks(t)
 	txn := makeNormalTx(blocks[0].Txs[0].GetHash())
-	err := lmempool.AcceptTxToMemPool(mempool.GetInstance(), txn)
+	err := lmempool.AcceptTxToMemPool(mempool.GetInstance(), txn, false)
 	assert.NoError(t, err)
 
 	_, err = ltx.CheckTxBeforeAcceptToMemPool(txn, mempool.GetInstance())
@@ -1570,7 +1570,7 @@ func Test_tx_with_already_spent_prev_outpoint_should_NOT_be_accepted_into_mempoo
 
 	blocks := generateTestBlocks(t)
 	txn := makeNormalTx(blocks[0].Txs[0].GetHash())
-	err := lmempool.AcceptTxToMemPool(mempool.GetInstance(), txn)
+	err := lmempool.AcceptTxToMemPool(mempool.GetInstance(), txn, false)
 	assert.NoError(t, err)
 
 	newTx := makeUniqueNormalTx(blocks[0].Txs[0].GetHash(), 1)
@@ -1596,7 +1596,7 @@ func Test_tx_with_existing_output_should_NOT_be_accepted_into_mempool(t *testing
 	txn := makeNormalTx(blocks[0].Txs[0].GetHash())
 	given_coins_of_tx_already_exists(txn, t)
 
-	err := lmempool.AcceptTxToMemPool(mempool.GetInstance(), txn)
+	err := lmempool.AcceptTxToMemPool(mempool.GetInstance(), txn, false)
 
 	assert.Equal(t, errcode.NewError(errcode.RejectAlreadyKnown, "txn-already-known"), err)
 }
@@ -1607,7 +1607,7 @@ func Test_tx_without_inputs_should_NOT_be_accepted_into_mempool(t *testing.T) {
 
 	inputNotExisting := util.HashOne
 	noInputTx := makeNormalTx(inputNotExisting)
-	err := lmempool.AcceptTxToMemPool(mempool.GetInstance(), noInputTx)
+	err := lmempool.AcceptTxToMemPool(mempool.GetInstance(), noInputTx, false)
 
 	assert.Equal(t, errcode.New(errcode.TxErrNoPreviousOut), err)
 }
@@ -1628,7 +1628,7 @@ func Test_non_BIP68_final_tx_should_NOT_be_accepted_into_mempool(t *testing.T) {
 
 	blocks := generateTestBlocks(t)
 	txn := makeNonBIP68FinalTx(blocks[0].Txs[0].GetHash())
-	err := lmempool.AcceptTxToMemPool(mempool.GetInstance(), txn)
+	err := lmempool.AcceptTxToMemPool(mempool.GetInstance(), txn, false)
 
 	assert.Equal(t, errcode.NewError(errcode.RejectNonstandard, "non-BIP68-final"), err)
 }
@@ -1640,7 +1640,7 @@ func Test_tx_with_non_standard_inputs_should_NOT_be_accepted_into_mempool(t *tes
 
 	blocks := generateTestBlocks(t)
 	txn := makeNormalTx(blocks[0].Txs[0].GetHash())
-	err := lmempool.AcceptTxToMemPool(mempool.GetInstance(), txn)
+	err := lmempool.AcceptTxToMemPool(mempool.GetInstance(), txn, false)
 
 	assert.Equal(t, errcode.NewError(errcode.RejectNonstandard, "bad-txns-nonstandard-inputs"), err)
 }
@@ -1669,7 +1669,7 @@ func Test_tx_with_too_many_script_ops_should_NOT_be_accepted_into_mempool(t *tes
 
 	blocks := generateTestBlocks(t)
 	txn := txWithTooManyScriptOps(blocks[0].Txs[0].GetHash(), 0)
-	err := lmempool.AcceptTxToMemPool(mempool.GetInstance(), txn)
+	err := lmempool.AcceptTxToMemPool(mempool.GetInstance(), txn, false)
 
 	assert.Equal(t, errcode.NewError(errcode.RejectNonstandard, "bad-txns-too-many-sigops"), err)
 }
@@ -1679,7 +1679,7 @@ func Test_tx_with_too_low_fee_should_NOT_be_accepted_into_mempool(t *testing.T) 
 
 	blocks := generateTestBlocks(t)
 	txn := makeNormalTx(blocks[0].Txs[0].GetHash())
-	lmempool.AcceptTxToMemPool(mempool.GetInstance(), txn)
+	lmempool.AcceptTxToMemPool(mempool.GetInstance(), txn, false)
 
 	txns := make([]*tx.Tx, 0)
 	txns = append(txns, txn)
@@ -1889,9 +1889,9 @@ func Test_ApplyBlockTransactions__generated_block_should_contains_tx_in_mempool(
 	txn := makeNormalTx(blocks[0].Txs[0].GetHash())
 	txn2 := makeNormalTx(blocks[1].Txs[0].GetHash())
 
-	err := lmempool.AcceptTxToMemPool(mempool.GetInstance(), txn)
+	err := lmempool.AcceptTxToMemPool(mempool.GetInstance(), txn, false)
 	assert.NoError(t, err)
-	err = lmempool.AcceptTxToMemPool(mempool.GetInstance(), txn2)
+	err = lmempool.AcceptTxToMemPool(mempool.GetInstance(), txn2, false)
 	assert.NoError(t, err)
 
 	blocks = generateTestBlocks(t)

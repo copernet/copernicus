@@ -527,7 +527,7 @@ func handleGetMempoolAncestors(s *Server, cmd interface{}, closeChan <-chan stru
 			Message: "the string " + c.TxID + " is not a standard hash",
 		}
 	}
-	entry := mempool.GetInstance().FindTx(*hash)
+	entry := mempool.GetInstance().FindTx(*hash, true)
 	if entry == nil {
 		return nil, btcjson.RPCError{
 			Code:    btcjson.RPCInvalidAddressOrKey,
@@ -576,7 +576,7 @@ func entryToJSON(entry *mempool.TxEntry) *btcjson.GetMempoolEntryRelativeInfoVer
 
 	setDepends := make([]string, 0)
 	for _, in := range entry.Tx.GetIns() {
-		if txItem := mempool.GetInstance().FindTx(in.PreviousOutPoint.Hash); txItem != nil {
+		if txItem := mempool.GetInstance().FindTx(in.PreviousOutPoint.Hash, true); txItem != nil {
 			setDepends = append(setDepends, in.PreviousOutPoint.Hash.String())
 		}
 	}
@@ -593,7 +593,7 @@ func handleGetMempoolDescendants(s *Server, cmd interface{}, closeChan <-chan st
 		return nil, rpcDecodeHexError(c.TxID)
 	}
 
-	entry := mempool.GetInstance().FindTx(*hash)
+	entry := mempool.GetInstance().FindTx(*hash, true)
 	if entry == nil {
 		return nil, btcjson.RPCError{
 			Code:    btcjson.RPCInvalidAddressOrKey,
@@ -630,7 +630,7 @@ func handleGetMempoolEntry(s *Server, cmd interface{}, closeChan <-chan struct{}
 		return nil, rpcDecodeHexError(c.TxID)
 	}
 
-	entry := mempool.GetInstance().FindTx(*hash)
+	entry := mempool.GetInstance().FindTx(*hash, true)
 	if entry == nil {
 		return nil, btcjson.RPCError{
 			Code:    btcjson.ErrRPCInvalidAddressOrKey,
@@ -715,7 +715,7 @@ func handleGetTxOut(s *Server, cmd interface{}, closeChan <-chan struct{}) (inte
 	if coin == nil {
 		if c.IncludeMempool == nil || *c.IncludeMempool {
 			coin = mempool.GetInstance().GetCoin(outPoint)
-			if coin == nil || mempool.GetInstance().HasSpentOut(outPoint) {
+			if coin == nil || mempool.GetInstance().HasSpentOut(outPoint, true) {
 				return nil, nil
 			}
 		} else {

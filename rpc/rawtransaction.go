@@ -259,7 +259,7 @@ func GetTxnOutputType(sType int) string {
 }
 
 func GetTransaction(hash *util.Hash, allowSlow bool) (*tx.Tx, *util.Hash, bool) {
-	entry := mempool.GetInstance().FindTx(*hash)
+	entry := mempool.GetInstance().FindTx(*hash, true)
 	if entry != nil {
 		return entry.Tx, nil, true
 	}
@@ -564,7 +564,7 @@ func handleSendRawTransaction(s *Server, cmd interface{}, closeChan <-chan struc
 		inChain = existingCoin != nil && !existingCoin.IsSpent()
 	}
 
-	entry := mempool.GetInstance().FindTx(hash)
+	entry := mempool.GetInstance().FindTx(hash, true)
 
 	if entry == nil && !inChain {
 		_, _, _, err = lmempool.AcceptNewTxToMempool(mempool.GetInstance(), &txn, chain.GetInstance().TipHeight(), -1)
@@ -621,7 +621,7 @@ func isCoinSpent(coin *utxo.Coin, out *outpoint.OutPoint) bool {
 		return false
 	}
 	if coin.IsMempoolCoin() {
-		return mempool.GetInstance().HasSpentOut(out)
+		return mempool.GetInstance().HasSpentOut(out, true)
 	}
 	return coin.IsSpent()
 }

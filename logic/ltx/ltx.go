@@ -101,15 +101,13 @@ func CheckTxBeforeAcceptToMemPool(txn *tx.Tx, pool *mempool.TxMempool) (*mempool
 	}
 
 	// is mempool already have it? conflict tx with mempool
-	pool.RLock()
-	defer pool.RUnlock()
-	if pool.FindTx(txn.GetHash()) != nil {
+	if pool.FindTx(txn.GetHash(), false) != nil {
 		log.Debug("tx already known in mempool, hash: %s", txn.GetHash())
 		return nil, errcode.NewError(errcode.RejectAlreadyKnown, "txn-already-in-mempool")
 	}
 
 	for _, e := range txn.GetIns() {
-		if pool.HasSpentOut(e.PreviousOutPoint) {
+		if pool.HasSpentOut(e.PreviousOutPoint, false) {
 			log.Debug("tx ins alread spent out in mempool")
 			return nil, errcode.NewError(errcode.RejectConflict, "txn-mempool-conflict")
 		}
@@ -957,7 +955,7 @@ func isCoinValid(pool *mempool.TxMempool, coin *utxo.Coin, out *outpoint.OutPoin
 		return false
 	}
 	if coin.IsMempoolCoin() {
-		return !pool.HasSpentOut(out)
+		return !pool.HasSpentOut(out, true)
 	}
 	return !coin.IsSpent()
 }

@@ -47,7 +47,7 @@ func (txr *TxRelayer) TxToRelay(txID *util.Hash) *tx.Tx {
 		return v.txn
 	}
 
-	if txe := mempool.GetInstance().FindTx(*txID); txe != nil {
+	if txe := mempool.GetInstance().FindTx(*txID, true); txe != nil {
 		return txe.Tx
 	}
 

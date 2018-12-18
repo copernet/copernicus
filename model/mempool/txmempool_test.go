@@ -109,7 +109,7 @@ func TestTxMempooladdTx(t *testing.T) {
 	noLimit := uint64(math.MaxUint64)
 
 	// Nothing in pool, remove should do nothing:
-	testPool.removeTxRecursive(txParentPtr, UNKNOWN)
+	testPool.RemoveTxRecursive(txParentPtr, UNKNOWN)
 	if testPool.Size() != poolSize {
 		t.Errorf("current poolSize : %d, except the poolSize : %d\n",
 			testPool.Size(), poolSize)
@@ -126,7 +126,7 @@ func TestTxMempooladdTx(t *testing.T) {
 		return
 	}
 	poolSize = testPool.Size()
-	testPool.removeTxRecursive(txParentPtr, UNKNOWN)
+	testPool.RemoveTxRecursive(txParentPtr, UNKNOWN)
 	if testPool.Size() != poolSize-1 {
 		t.Errorf("current poolSize : %d, except the poolSize : %d\n",
 			testPool.Size(), poolSize-1)
@@ -164,7 +164,7 @@ func TestTxMempooladdTx(t *testing.T) {
 	}
 
 	// Remove Child[0], GrandChild[0] should be removed:
-	testPool.removeTxRecursive(&txChild[0], UNKNOWN)
+	testPool.RemoveTxRecursive(&txChild[0], UNKNOWN)
 	if poolSize-2 != testPool.Size() {
 		t.Errorf("current poolSize : %d, except the poolSize %d ", testPool.Size(), poolSize-2)
 		return
@@ -172,13 +172,13 @@ func TestTxMempooladdTx(t *testing.T) {
 
 	// ... make sure grandchild and child are gone:
 	poolSize = testPool.Size()
-	testPool.removeTxRecursive(&txGrandChild[0], UNKNOWN)
+	testPool.RemoveTxRecursive(&txGrandChild[0], UNKNOWN)
 	if testPool.Size() != poolSize {
 		t.Errorf("current poolSize : %d, except the poolSize %d ", testPool.Size(), poolSize)
 		return
 	}
 	poolSize = testPool.Size()
-	testPool.removeTxRecursive(&txChild[0], UNKNOWN)
+	testPool.RemoveTxRecursive(&txChild[0], UNKNOWN)
 	if testPool.Size() != poolSize {
 		t.Errorf("current poolSize : %d, except the poolSize %d ", testPool.Size(), poolSize)
 		return
@@ -186,7 +186,7 @@ func TestTxMempooladdTx(t *testing.T) {
 
 	// Remove parent, all children/grandchildren should go:
 	poolSize = testPool.Size()
-	testPool.removeTxRecursive(txParentPtr, UNKNOWN)
+	testPool.RemoveTxRecursive(txParentPtr, UNKNOWN)
 	if testPool.Size() != poolSize-5 {
 		t.Errorf("current poolSize : %d, except the poolSize : %d", testPool.Size(), poolSize-5)
 		return
@@ -209,7 +209,7 @@ func TestTxMempooladdTx(t *testing.T) {
 	// Now remove the parent, as might happen if a block-re-org occurs but the
 	// parent cannot be put into the mempool (maybe because it is non-standard):
 	poolSize = testPool.Size()
-	testPool.removeTxRecursive(txParentPtr, UNKNOWN)
+	testPool.RemoveTxRecursive(txParentPtr, UNKNOWN)
 	if testPool.Size() != poolSize-6 {
 		t.Errorf("current poolSize : %d, except the poolSize : %d", testPool.Size(), poolSize-6)
 		return
@@ -364,17 +364,17 @@ func TestTxMempool_PoolData(t *testing.T) {
 		nolimit, nolimit, true)
 	mp.AddTx(set[3], ancestors)
 
-	txentry0 := mp.FindTx(hash0)
+	txentry0 := mp.FindTx(hash0, false)
 	assert.Equal(t, txentry0, set[0])
 
-	txentry1 := mp.FindTx(hash1)
+	txentry1 := mp.FindTx(hash1, false)
 
 	assert.Equal(t, txentry1, set[1])
 
-	txentry2 := mp.FindTx(hash2)
+	txentry2 := mp.FindTx(hash2, false)
 	assert.Equal(t, txentry2, set[2])
 
-	txentry3 := mp.FindTx(hash3)
+	txentry3 := mp.FindTx(hash3, false)
 	assert.Equal(t, txentry3, set[3])
 
 	res := mp.GetAllTxEntryWithoutLock()
@@ -408,7 +408,7 @@ func TestTxMempool_RootTx(t *testing.T) {
 	res := mp.GetAllSpentOutWithoutLock()
 	assert.Equal(t, res, mp.nextTx)
 
-	ok := mp.HasSpentOut(outpoint1)
+	ok := mp.HasSpentOut(outpoint1, false)
 	assert.Equal(t, ok, true)
 
 	txentry := mp.HasSPentOutWithoutLock(outpoint1)

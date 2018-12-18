@@ -138,9 +138,11 @@ func (m *TxMempool) AddTx(txEntry *TxEntry, ancestors map[*TxEntry]struct{}) err
 	return nil
 }
 
-func (m *TxMempool) HasSpentOut(out *outpoint.OutPoint) bool {
-	m.RLock()
-	defer m.RUnlock()
+func (m *TxMempool) HasSpentOut(out *outpoint.OutPoint, lock bool) bool {
+	if lock {
+		m.RLock()
+		defer m.RUnlock()
+	}
 
 	_, ok := m.nextTx[*out]
 	return ok
@@ -195,12 +197,6 @@ func (m *TxMempool) CalculateMemPoolAncestorsWithLock(txhash *util.Hash) map[*Tx
 	noLimit := uint64(math.MaxUint64)
 	ancestors, _ := m.CalculateMemPoolAncestors(entry.Tx, noLimit, noLimit, noLimit, noLimit, true)
 	return ancestors
-}
-
-func (m *TxMempool) RemoveTxRecursive(origTx *tx.Tx, reason PoolRemovalReason) {
-	m.Lock()
-	m.removeTxRecursive(origTx, reason)
-	m.Unlock()
 }
 
 func (m *TxMempool) GetRootTx() map[util.Hash]TxEntry {
@@ -265,9 +261,11 @@ func (m *TxMempool) RemoveTxSelf(txs []*tx.Tx) {
 	m.blockSinceLastRollingFeeBump = true
 }
 
-func (m *TxMempool) FindTx(hash util.Hash) *TxEntry {
-	m.RLock()
-	defer m.RUnlock()
+func (m *TxMempool) FindTx(hash util.Hash, lock bool) *TxEntry {
+	if lock {
+		m.RLock()
+		defer m.RUnlock()
+	}
 	if find, ok := m.poolData[hash]; ok {
 		return find
 	}
@@ -432,7 +430,7 @@ func (m *TxMempool) removeConflicts(tx *tx.Tx) {
 	for _, preout := range tx.GetAllPreviousOut() {
 		if flictEntry, ok := m.nextTx[preout]; ok {
 			if flictEntry.Tx.GetHash() != tx.GetHash() {
-				m.removeTxRecursive(flictEntry.Tx, CONFLICT)
+				m.RemoveTxRecursive(flictEntry.Tx, CONFLICT)
 			}
 		}
 	}
@@ -499,8 +497,8 @@ func (m *TxMempool) StatisticDescrease(txEntry *TxEntry, ancestors, descendants 
 	m.addToFeeRateContainer(descendants)
 }
 
-// removeTxRecursive remove this transaction And its all descent transaction from mempool.
-func (m *TxMempool) removeTxRecursive(origTx *tx.Tx, reason PoolRemovalReason) {
+// RemoveTxRecursive remove this transaction And its all descent transaction from mempool.
+func (m *TxMempool) RemoveTxRecursive(origTx *tx.Tx, reason PoolRemovalReason) {
 	// Remove transaction from memory pool
 	txToRemove := make(map[*TxEntry]struct{})
 

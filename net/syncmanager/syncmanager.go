@@ -529,6 +529,7 @@ func (sm *SyncManager) updateTxRequestState(state *peerSyncState, txHash util.Ha
 }
 
 func fetchMissingTx(missTxs []util.Hash, peer *peer.Peer) {
+	log.Warn("request lost tx %q", missTxs)
 	invMsg := wire.NewMsgInvSizeHint(uint(len(missTxs)))
 	for _, hash := range missTxs {
 		iv := wire.NewInvVect(wire.InvTypeTx, &hash)
@@ -1354,11 +1355,11 @@ func (sm *SyncManager) handleBlockchainNotification(notification *chain.Notifica
 
 	// A block has been connected to the main block chain.
 	case chain.NTBlockConnected:
-		block, ok := notification.Data.(*block.Block)
-		if !ok {
-			log.Warn("Chain connected notification is not a block.")
-			break
-		}
+		// block, ok := notification.Data.(*block.Block)
+		// if !ok {
+		// 	log.Warn("Chain connected notification is not a block.")
+		// 	break
+		// }
 
 		// Remove all of the transactions (except the coinbase) in the
 		// connected block from the transaction pool.  Secondly, remove any
@@ -1367,13 +1368,14 @@ func (sm *SyncManager) handleBlockchainNotification(notification *chain.Notifica
 		// no longer an orphan. Transactions which depend on a confirmed
 		// transaction are NOT removed recursively because they are still
 		// valid.
-		lmempool.RemoveTxSelf(mempool.GetInstance(), block.Txs[1:])
-		for _, tx := range block.Txs[1:] {
-			// TODO: add it back when rcp command @SendRawTransaction is ready for broadcasting tx
-			// sm.peerNotifier.TransactionConfirmed(tx)
 
-			lmempool.TryAcceptOrphansTxs(mempool.GetInstance(), tx, chain.GetInstance().Height(), true)
-		}
+		// lmempool.RemoveTxSelf(mempool.GetInstance(), block.Txs[1:])
+		// for _, tx := range block.Txs[1:] {
+		// 	// TODO: add it back when rcp command @SendRawTransaction is ready for broadcasting tx
+		// 	// sm.peerNotifier.TransactionConfirmed(tx)
+
+		// 	lmempool.TryAcceptOrphansTxs(mempool.GetInstance(), tx, chain.GetInstance().Height(), true)
+		// }
 
 		// Register block with the fee estimator, if it exists.
 		//if sm.feeEstimator != nil {

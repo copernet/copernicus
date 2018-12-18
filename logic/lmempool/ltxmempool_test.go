@@ -507,7 +507,7 @@ func TestSimpleOrphanChain(t *testing.T) {
 	// acceptedTxns, err := harness.txPool.ProcessTransaction(chainedTxns[0],
 	// 	false, false, 0)
 	// acceptedTxns, _, err := service.ProcessTransaction(chainedTxns[0], 0)
-	err = lmempool.AcceptTxToMemPool(harness.txPool, chainedTxns[0])
+	err = lmempool.AcceptTxToMemPool(harness.txPool, chainedTxns[0], false)
 	if err != nil {
 		t.Fatalf("ProcessTransaction: failed to accept valid "+
 			"orphan %v", err)
@@ -939,7 +939,7 @@ func TestCheckSpend(t *testing.T) {
 	// spend there.
 	for _, op := range outputs {
 		//spend := harness.txPool.CheckSpend(op.outPoint)
-		spend := harness.txPool.HasSpentOut(&op.outPoint)
+		spend := harness.txPool.HasSpentOut(&op.outPoint, false)
 		if spend {
 			t.Fatalf("Unexpeced spend found in pool: %v", spend)
 		}
@@ -959,7 +959,7 @@ func TestCheckSpend(t *testing.T) {
 		// 	false, 0)
 		//fmt.Printf("process %v tx(%s)\n", tx.GetIns()[0].PreviousOutPoint, tx.GetHash())
 		//_, _, err := service.ProcessTransaction(tx, 0)
-		err := lmempool.AcceptTxToMemPool(harness.txPool, tx)
+		err := lmempool.AcceptTxToMemPool(harness.txPool, tx, false)
 		if err != nil {
 			t.Fatalf("ProcessTransaction: failed to accept "+
 				"tx(%s): %v", tx.GetHash(), err)
@@ -1151,7 +1151,7 @@ func TestRemoveForReorg(t *testing.T) {
 	generateTestBlocks(t, script.NewScriptRaw(harness.payScript))
 
 	for _, tmpTx := range chainedTxns {
-		err := lmempool.AcceptTxToMemPool(harness.txPool, tmpTx)
+		err := lmempool.AcceptTxToMemPool(harness.txPool, tmpTx, false)
 		if err != nil {
 			t.Fatalf("ProcessTransaction: failed to accept "+
 				"tx(%s): %v", tmpTx.GetHash(), err)
