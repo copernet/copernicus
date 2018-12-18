@@ -402,17 +402,9 @@ func TestContextualCheckBlock(t *testing.T) {
 
 	blk2 := getBlock(blk2str)
 	blk1Index := blockindex.NewBlockIndex(&blk1.Header)
-	txn := tx.NewGenesisCoinbaseTx()
-	repeat := 8 * consensus.OneMegaByte / txn.SerializeSize()
-	for i := uint32(0); i < repeat; i++ {
-		blk2.Txs = append(blk2.Txs, txn)
-	}
-	if err := ContextualCheckBlock(blk2, blk1Index); err == nil {
-		t.Errorf("TestContextualCheckBlock test 3 check big block failed")
-	}
 
 	blk1Index.Header.Time = uint32(chain.GetInstance().GetParams().MonolithActivationTime)
 	if err := ContextualCheckBlock(blk2, blk1Index); err != nil {
-		t.Errorf("TestContextualCheckBlock test 4 check MonolithActivationTime failed")
+		t.Errorf("TestContextualCheckBlock test 3 check MonolithActivationTime failed")
 	}
 }
