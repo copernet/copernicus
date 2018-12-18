@@ -1,6 +1,7 @@
 package disk
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/stretchr/testify/assert"
 	"io/ioutil"
@@ -33,12 +34,59 @@ import (
 func initTestEnv(t *testing.T) (dirpath string, err error) {
 	args := []string{"--testnet"}
 	conf.Cfg = conf.InitConfig(args)
-
 	unitTestDataDirPath, err := conf.SetUnitTestDataDir(conf.Cfg)
-	t.Logf("test in temp dir: %s", unitTestDataDirPath)
+
 	if err != nil {
 		return "", err
 	}
+
+	if conf.Cfg.P2PNet.TestNet {
+		model.SetTestNetParams()
+	} else if conf.Cfg.P2PNet.RegTest {
+		model.SetRegTestParams()
+	}
+
+	//init log
+	logDir := filepath.Join(conf.DataDir, log.DefaultLogDirname)
+	if !conf.FileExists(logDir) {
+		err := os.MkdirAll(logDir, os.ModePerm)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	logConf := struct {
+		FileName string `json:"filename"`
+		Level    int    `json:"level"`
+	}{
+		FileName: logDir + "/" + conf.Cfg.Log.FileName + ".log",
+		Level:    log.GetLevel(conf.Cfg.Log.Level),
+	}
+
+	configuration, err := json.Marshal(logConf)
+	if err != nil {
+		panic(err)
+	}
+	log.Init(string(configuration))
+
+	// Init UTXO DB
+	utxoDbCfg := &db.DBOption{
+		FilePath:  conf.DataDir + "/chainstate",
+		CacheSize: (1 << 20) * 8,
+		Wipe:      conf.Cfg.Reindex,
+	}
+	utxoConfig := utxo.UtxoConfig{Do: utxoDbCfg}
+	utxo.InitUtxoLruTip(&utxoConfig)
+
+	// Init blocktree DB
+	blkDbCfg := &db.DBOption{
+		FilePath:  conf.DataDir + "/blocks/index",
+		CacheSize: (1 << 20) * 8,
+		Wipe:      conf.Cfg.Reindex,
+	}
+	blkdbCfg := blkdb.BlockTreeDBConfig{Do: blkDbCfg}
+	blkdb.InitBlockTreeDB(&blkdbCfg)
+
 	persist.InitPersistGlobal(blkdb.GetInstance())
 
 	return unitTestDataDirPath, nil
@@ -419,8 +467,6 @@ func TestGetBlkFiles(t *testing.T) {
 	}
 
 	dirBlocks := filepath.Join(testDir, "blocks")
-	err = os.Mkdir(dirBlocks, 0777)
-	assert.Nil(t, err)
 
 	for _, filename := range blkList {
 		_, err = os.Create(filepath.Join(dirBlocks, filename))
@@ -442,8 +488,6 @@ func TestCleanupBlockRevFiles(t *testing.T) {
 	defer os.RemoveAll(testDir)
 
 	dirBlocks := filepath.Join(testDir, "blocks")
-	err = os.Mkdir(dirBlocks, 0777)
-	assert.Nil(t, err)
 
 	// test delete blk file that index not continuous
 	blkList := []string{
@@ -473,6 +517,9 @@ func TestCleanupBlockRevFiles(t *testing.T) {
 	assert.Nil(t, err)
 
 	for _, file := range files {
+		if file.IsDir() {
+			continue
+		}
 		is := isBlkFile(file.Name())
 		assert.True(t, is)
 	}

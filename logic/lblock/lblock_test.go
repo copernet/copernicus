@@ -3,8 +3,10 @@ package lblock
 import (
 	"bytes"
 	"encoding/hex"
-	"fmt"
+	"encoding/json"
+	"github.com/copernet/copernicus/log"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/copernet/copernicus/conf"
@@ -61,29 +63,44 @@ const (
 		"5bdbf4fffff001d008fd760"
 )
 
-func TestMain(m *testing.M) {
-	workDir, err := initTestEnv()
-	if err == nil {
-		fmt.Printf("test in temp dir: %s\n", workDir)
-		m.Run()
-	} else {
-		fmt.Printf("init test env error:%s\n", err.Error())
-	}
-	if len(workDir) > 0 {
-		os.RemoveAll(workDir)
-		fmt.Println("clear test env")
-	}
-}
-
-func initTestEnv() (string, error) {
-	conf.Cfg = conf.InitConfig([]string{})
+func initTestEnv(t *testing.T, args []string) (dirpath string, err error) {
+	conf.Cfg = conf.InitConfig(args)
 
 	unitTestDataDirPath, err := conf.SetUnitTestDataDir(conf.Cfg)
 	if err != nil {
 		return "", err
 	}
 
-	model.SetTestNetParams()
+	//model.SetTestNetParams()
+
+	if conf.Cfg.P2PNet.TestNet {
+		model.SetTestNetParams()
+	} else if conf.Cfg.P2PNet.RegTest {
+		model.SetRegTestParams()
+	}
+
+	//init log
+	logDir := filepath.Join(conf.DataDir, log.DefaultLogDirname)
+	if !conf.FileExists(logDir) {
+		err := os.MkdirAll(logDir, os.ModePerm)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	logConf := struct {
+		FileName string `json:"filename"`
+		Level    int    `json:"level"`
+	}{
+		FileName: logDir + "/" + conf.Cfg.Log.FileName + ".log",
+		Level:    log.GetLevel(conf.Cfg.Log.Level),
+	}
+
+	configuration, err := json.Marshal(logConf)
+	if err != nil {
+		panic(err)
+	}
+	log.Init(string(configuration))
 
 	// Init UTXO DB
 	utxoDbCfg := &db.DBOption{
@@ -112,6 +129,13 @@ func initTestEnv() (string, error) {
 	return unitTestDataDirPath, nil
 }
 
+func cleanTestEnv() {
+	gChain := chain.GetInstance()
+	if gChain != nil {
+		*gChain = *chain.NewChain()
+	}
+}
+
 func clearIndexMap() {
 	indexMap := make(map[util.Hash]*blockindex.BlockIndex)
 	branch := make([]*blockindex.BlockIndex, 0, 20)
@@ -130,6 +154,13 @@ func getBlock(blockstr string) *block.Block {
 }
 
 func TestGetBlockByIndex(t *testing.T) {
+	testDir, err := initTestEnv(t, []string{"--testnet"})
+	if err != nil {
+		t.Errorf("initTestEnv Error")
+	}
+	defer os.RemoveAll(testDir)
+	defer cleanTestEnv()
+
 	blkIdx := blockindex.NewBlockIndex(&chain.GetInstance().GetParams().GenesisBlock.Header)
 	// empty now
 	if _, err := GetBlockByIndex(blkIdx, chain.GetInstance().GetParams()); err == nil {
@@ -138,6 +169,12 @@ func TestGetBlockByIndex(t *testing.T) {
 }
 
 func TestAcceptBlockHeader(t *testing.T) {
+	testDir, err := initTestEnv(t, []string{"--testnet"})
+	if err != nil {
+		t.Errorf("initTestEnv Error")
+	}
+	defer os.RemoveAll(testDir)
+	defer cleanTestEnv()
 	clearIndexMap()
 
 	genesisHeader := &chain.GetInstance().GetParams().GenesisBlock.Header
@@ -186,6 +223,12 @@ func TestAcceptBlockHeader(t *testing.T) {
 }
 
 func TestAcceptBlock(t *testing.T) {
+	testDir, err := initTestEnv(t, []string{"--testnet"})
+	if err != nil {
+		t.Errorf("initTestEnv Error")
+	}
+	defer os.RemoveAll(testDir)
+	defer cleanTestEnv()
 	clearIndexMap()
 
 	fRequested := false
@@ -242,6 +285,12 @@ func TestAcceptBlock(t *testing.T) {
 }
 
 func TestCheckBlock(t *testing.T) {
+	testDir, err := initTestEnv(t, []string{"--testnet"})
+	if err != nil {
+		t.Errorf("initTestEnv Error")
+	}
+	defer os.RemoveAll(testDir)
+	defer cleanTestEnv()
 	blk1 := getBlock(blk1str)
 	blk1.Checked = true
 	blk1.Header.Nonce = 12345
@@ -295,6 +344,12 @@ func TestCheckBlock(t *testing.T) {
 }
 
 func TestGetBlockScriptFlags(t *testing.T) {
+	testDir, err := initTestEnv(t, []string{"--testnet"})
+	if err != nil {
+		t.Errorf("initTestEnv Error")
+	}
+	defer os.RemoveAll(testDir)
+	defer cleanTestEnv()
 	header := &chain.GetInstance().GetParams().GenesisBlock.Header
 	blkIndex := blockindex.NewBlockIndex(header)
 	ret := GetBlockScriptFlags(blkIndex)
@@ -304,6 +359,12 @@ func TestGetBlockScriptFlags(t *testing.T) {
 }
 
 func TestGetBlockSubsidy(t *testing.T) {
+	testDir, err := initTestEnv(t, []string{"--testnet"})
+	if err != nil {
+		t.Errorf("initTestEnv Error")
+	}
+	defer os.RemoveAll(testDir)
+	defer cleanTestEnv()
 	amt := model.GetBlockSubsidy(0, chain.GetInstance().GetParams())
 	if amt.ToBTC() != 50 {
 		t.Errorf("TestGetBlockSubsidy test 1 check height=0 failed. amount:%v", amt.ToBTC())
@@ -323,6 +384,12 @@ func TestGetBlockSubsidy(t *testing.T) {
 }
 
 func TestContextualCheckBlock(t *testing.T) {
+	testDir, err := initTestEnv(t, []string{"--testnet"})
+	if err != nil {
+		t.Errorf("initTestEnv Error")
+	}
+	defer os.RemoveAll(testDir)
+	defer cleanTestEnv()
 	if err := ContextualCheckBlock(chain.GetInstance().GetParams().GenesisBlock, nil); err != nil {
 		t.Errorf("TestContextualCheckBlock test 1 check genesis block failed. error:%s", err.Error())
 	}

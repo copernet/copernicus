@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/crypto"
 	"github.com/copernet/copernicus/log"
@@ -31,7 +30,6 @@ import (
 	"github.com/copernet/copernicus/util"
 	"github.com/stretchr/testify/assert"
 	"io"
-	"io/ioutil"
 	"math/big"
 	"math/rand"
 	"net"
@@ -55,105 +53,107 @@ func (m *mockPeerNotifier) RelayInventory(invVect *wire.InvVect, data interface{
 func (m *mockPeerNotifier) RelayUpdatedTipBlocks(event *chain.TipUpdatedEvent)     {}
 func (m *mockPeerNotifier) TransactionConfirmed(tx *tx.Tx)                         {}
 
-func appInitMain(args []string) {
-	conf.Cfg = conf.InitConfig(args)
-	if conf.Cfg == nil {
-		fmt.Println("please run `./copernicus -h` for usage.")
-		os.Exit(0)
-	}
-
-	if conf.Cfg.P2PNet.TestNet {
-		model.SetTestNetParams()
-	} else if conf.Cfg.P2PNet.RegTest {
-		model.SetRegTestParams()
-	}
-
-	fmt.Println("Current data dir:\033[0;32m", conf.DataDir, "\033[0m")
-
-	//init log
-	logDir := filepath.Join(conf.DataDir, log.DefaultLogDirname)
-	if !conf.FileExists(logDir) {
-		err := os.MkdirAll(logDir, os.ModePerm)
-		if err != nil {
-			panic("logdir create failed: " + err.Error())
-		}
-	}
-
-	logConf := struct {
-		FileName string `json:"filename"`
-		Level    int    `json:"level"`
-	}{
-		FileName: logDir + "/" + conf.Cfg.Log.FileName + ".log",
-		Level:    log.GetLevel(conf.Cfg.Log.Level),
-	}
-
-	configuration, err := json.Marshal(logConf)
-	if err != nil {
-		panic(err)
-	}
-	once.Do(func() {
-		log.Init(string(configuration))
-	})
-
-	// Init UTXO DB
-	utxoConfig := utxo.UtxoConfig{Do: &db.DBOption{FilePath: conf.DataDir + "/chainstate", CacheSize: (1 << 20) * 8}}
-	utxo.InitUtxoLruTip(&utxoConfig)
-
-	// Init blocktree DB
-	blkdbCfg := blkdb.BlockTreeDBConfig{Do: &db.DBOption{FilePath: conf.DataDir + "/blocks/index", CacheSize: (1 << 20) * 8}}
-	blkdb.InitBlockTreeDB(&blkdbCfg)
-
-	chain.InitGlobalChain(blkdb.GetInstance())
-	persist.InitPersistGlobal(blkdb.GetInstance())
-
-	lchain.InitGenesisChain()
-
-	mempool.InitMempool()
-	crypto.InitSecp256()
-}
+//func appInitMain(args []string) {
+//	conf.Cfg = conf.InitConfig(args)
+//	if conf.Cfg == nil {
+//		fmt.Println("please run `./copernicus -h` for usage.")
+//		os.Exit(0)
+//	}
+//
+//	if conf.Cfg.P2PNet.TestNet {
+//		model.SetTestNetParams()
+//	} else if conf.Cfg.P2PNet.RegTest {
+//		model.SetRegTestParams()
+//	}
+//
+//	fmt.Println("Current data dir:\033[0;32m", conf.DataDir, "\033[0m")
+//
+//	//init log
+//	logDir := filepath.Join(conf.DataDir, log.DefaultLogDirname)
+//	if !conf.FileExists(logDir) {
+//		err := os.MkdirAll(logDir, os.ModePerm)
+//		if err != nil {
+//			panic("logdir create failed: " + err.Error())
+//		}
+//	}
+//
+//	logConf := struct {
+//		FileName string `json:"filename"`
+//		Level    int    `json:"level"`
+//	}{
+//		FileName: logDir + "/" + conf.Cfg.Log.FileName + ".log",
+//		Level:    log.GetLevel(conf.Cfg.Log.Level),
+//	}
+//
+//	configuration, err := json.Marshal(logConf)
+//	if err != nil {
+//		panic(err)
+//	}
+//	once.Do(func() {
+//		log.Init(string(configuration))
+//	})
+//
+//	// Init UTXO DB
+//	utxoConfig := utxo.UtxoConfig{Do: &db.DBOption{FilePath: conf.DataDir + "/chainstate", CacheSize: (1 << 20) * 8}}
+//	utxo.InitUtxoLruTip(&utxoConfig)
+//
+//	// Init blocktree DB
+//	blkdbCfg := blkdb.BlockTreeDBConfig{Do: &db.DBOption{FilePath: conf.DataDir + "/blocks/index", CacheSize: (1 << 20) * 8}}
+//	blkdb.InitBlockTreeDB(&blkdbCfg)
+//
+//	chain.InitGlobalChain(blkdb.GetInstance())
+//	persist.InitPersistGlobal(blkdb.GetInstance())
+//
+//	lchain.InitGenesisChain()
+//
+//	mempool.InitMempool()
+//	crypto.InitSecp256()
+//}
 
 var initLock sync.Mutex
 var once sync.Once
 
-func makeSyncManager() (*SyncManager, string, error) {
+func makeSyncManager() (*SyncManager, error) {
 	mp := mockPeerNotifier{}
 
-	dir, err := ioutil.TempDir("", "syncmanager")
-	if err != nil {
-		return nil, "", err
-	}
 	initLock.Lock()
 	defer initLock.Unlock()
-	appInitMain([]string{"--datadir", dir, "--regtest"})
+	//appInitMain([]string{"--datadir", dir, "--regtest"})
 	sm, err := New(&Config{
 		PeerNotifier: &mp,
 		ChainParams:  model.ActiveNetParams,
 		MaxPeers:     8,
 	})
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
-	return sm, dir, nil
+	return sm, nil
 }
 
 func TestSyncManager(t *testing.T) {
-	sm, dir, err := makeSyncManager()
+	testDir, _ := initTestEnv(t, []string{"--regtest"})
+	defer os.RemoveAll(testDir)
+	defer cleanup()
+
+	sm, err := makeSyncManager()
 	if err != nil {
 		t.Fatalf("construct syncmanager failed :%v\n", err)
 	}
-	defer os.RemoveAll(dir)
 	sm.Start()
 	sm.Stop()
 }
 
 func TestSyncPeerID(t *testing.T) {
+	testDir, _ := initTestEnv(t, []string{"--regtest"})
+	defer os.RemoveAll(testDir)
+	defer cleanup()
+
 	config := peer.Config{}
 	in := peer.NewInboundPeer(&config, false)
-	sm, dir, err := makeSyncManager()
+	sm, err := makeSyncManager()
 	if err != nil {
 		t.Fatalf("construct syncmanager failed :%v\n", err)
 	}
-	defer os.RemoveAll(dir)
 	sm.Start()
 	sm.NewPeer(in)
 	if id := sm.SyncPeerID(); id != 0 {
@@ -164,11 +164,14 @@ func TestSyncPeerID(t *testing.T) {
 }
 
 func TestIsCurrent(t *testing.T) {
-	sm, dir, err := makeSyncManager()
+	testDir, _ := initTestEnv(t, []string{"--regtest"})
+	defer os.RemoveAll(testDir)
+	defer cleanup()
+
+	sm, err := makeSyncManager()
 	if err != nil {
 		t.Fatalf("construct syncmanager failed :%v\n", err)
 	}
-	defer os.RemoveAll(dir)
 	sm.Start()
 	if c := sm.IsCurrent(); c {
 		t.Fatalf("current should be false")
@@ -177,11 +180,14 @@ func TestIsCurrent(t *testing.T) {
 }
 
 func TestQueueInv(t *testing.T) {
-	sm, dir, err := makeSyncManager()
+	testDir, _ := initTestEnv(t, []string{"--regtest"})
+	defer os.RemoveAll(testDir)
+	defer cleanup()
+
+	sm, err := makeSyncManager()
 	if err != nil {
 		t.Fatalf("construct syncmanager failed :%v\n", err)
 	}
-	defer os.RemoveAll(dir)
 	sm.Start()
 	inv := wire.NewMsgInv()
 	config := peer.Config{}
@@ -191,11 +197,14 @@ func TestQueueInv(t *testing.T) {
 }
 
 func TestQueueTx(t *testing.T) {
-	sm, dir, err := makeSyncManager()
+	testDir, _ := initTestEnv(t, []string{"--regtest"})
+	defer os.RemoveAll(testDir)
+	defer cleanup()
+
+	sm, err := makeSyncManager()
 	if err != nil {
 		t.Fatalf("construct syncmanager failed :%v\n", err)
 	}
-	defer os.RemoveAll(dir)
 	tx := tx.Tx{}
 	rawTxString := "0100000002f6b52b137227b1992a6289e2c1b265953b559d782faba905c209ddf1c7a48fb8" +
 		"000000006b48304502200a0c787cb9c132584e640b7686a8f6a78d9c4a41201a0c7a139d5383970b39c50" +
@@ -224,11 +233,14 @@ func TestQueueTx(t *testing.T) {
 }
 
 func TestQueueBlock(t *testing.T) {
-	sm, dir, err := makeSyncManager()
+	testDir, _ := initTestEnv(t, []string{"--regtest"})
+	defer os.RemoveAll(testDir)
+	defer cleanup()
+
+	sm, err := makeSyncManager()
 	if err != nil {
 		t.Fatalf("construct syncmanager failed :%v\n", err)
 	}
-	defer os.RemoveAll(dir)
 	bl := block.Block{}
 	config := peer.Config{}
 	in := peer.NewInboundPeer(&config, false)
@@ -239,11 +251,14 @@ func TestQueueBlock(t *testing.T) {
 
 func TestMessgePool(t *testing.T) {
 	mp := wire.NewMsgMemPool()
-	sm, dir, err := makeSyncManager()
+	testDir, _ := initTestEnv(t, []string{"--regtest"})
+	defer os.RemoveAll(testDir)
+	defer cleanup()
+
+	sm, err := makeSyncManager()
 	if err != nil {
 		t.Fatalf("construct syncmanager failed :%v\n", err)
 	}
-	defer os.RemoveAll(dir)
 	config := peer.Config{}
 	in := peer.NewInboundPeer(&config, false)
 	done := make(chan struct{})
@@ -255,11 +270,14 @@ func TestMessgePool(t *testing.T) {
 
 func TestGetBlocks(t *testing.T) {
 	blk := wire.NewMsgGetBlocks(&util.HashZero)
-	sm, dir, err := makeSyncManager()
+	testDir, _ := initTestEnv(t, []string{"--regtest"})
+	defer os.RemoveAll(testDir)
+	defer cleanup()
+
+	sm, err := makeSyncManager()
 	if err != nil {
 		t.Fatalf("construct syncmanager failed :%v\n", err)
 	}
-	defer os.RemoveAll(dir)
 	config := peer.Config{}
 	in := peer.NewInboundPeer(&config, false)
 	done := make(chan struct{})
@@ -269,11 +287,14 @@ func TestGetBlocks(t *testing.T) {
 
 func TestQueueHeaders(t *testing.T) {
 	hdr := wire.NewMsgHeaders()
-	sm, dir, err := makeSyncManager()
+	testDir, _ := initTestEnv(t, []string{"--regtest"})
+	defer os.RemoveAll(testDir)
+	defer cleanup()
+
+	sm, err := makeSyncManager()
 	if err != nil {
 		t.Fatalf("construct syncmanager failed :%v\n", err)
 	}
-	defer os.RemoveAll(dir)
 	config := peer.Config{}
 	in := peer.NewInboundPeer(&config, false)
 	sm.Start()
@@ -282,11 +303,14 @@ func TestQueueHeaders(t *testing.T) {
 }
 
 func TestPause(t *testing.T) {
-	sm, dir, err := makeSyncManager()
+	testDir, _ := initTestEnv(t, []string{"--regtest"})
+	defer os.RemoveAll(testDir)
+	defer cleanup()
+
+	sm, err := makeSyncManager()
 	if err != nil {
 		t.Fatalf("construct syncmanager failed :%v\n", err)
 	}
-	defer os.RemoveAll(dir)
 	sm.Start()
 	sm.Pause() <- struct{}{}
 	sm.Stop()
@@ -330,11 +354,14 @@ var blk2str = "0100000043497FD7F826957108F4A30FD9CEC3AEBA79972084E90EAD01EA33090
 	"1AEAF2F8638A129A3156FBE7E5EF635226B0BAFD495FF03AFE2C843D7E3A4B51AC00232102"
 
 func TestSyncManager_handleBlockchainNotification(t *testing.T) {
-	sm, dir, err := makeSyncManager()
+	testDir, _ := initTestEnv(t, []string{"--regtest"})
+	defer os.RemoveAll(testDir)
+	defer cleanup()
+
+	sm, err := makeSyncManager()
 	if err != nil {
 		t.Fatalf("construct syncmanager failed :%v\n", err)
 	}
-	defer os.RemoveAll(dir)
 	sm.Start()
 
 	//test NTChainTipUpdated
@@ -366,11 +393,14 @@ func TestSyncManager_handleBlockchainNotification(t *testing.T) {
 }
 
 func TestSyncManager_limitMap(t *testing.T) {
-	sm, dir, err := makeSyncManager()
+	testDir, _ := initTestEnv(t, []string{"--regtest"})
+	defer os.RemoveAll(testDir)
+	defer cleanup()
+
+	sm, err := makeSyncManager()
 	if err != nil {
 		t.Fatalf("construct syncmanager failed :%v\n", err)
 	}
-	defer os.RemoveAll(dir)
 	sm.Start()
 
 	hash1 := util.HashFromString("00000000000001bcd6b635a1249dfbe76c0d001592a7219a36cd9bbd002c7238")
@@ -385,11 +415,14 @@ func TestSyncManager_limitMap(t *testing.T) {
 }
 
 func TestSyncManager_findNextHeaderCheckpoint(t *testing.T) {
-	sm, dir, err := makeSyncManager()
+	testDir, _ := initTestEnv(t, []string{"--regtest"})
+	defer os.RemoveAll(testDir)
+	defer cleanup()
+
+	sm, err := makeSyncManager()
 	if err != nil {
 		t.Fatalf("construct syncmanager failed :%v\n", err)
 	}
-	defer os.RemoveAll(dir)
 	sm.Start()
 
 	hash1 := util.HashFromString("00000000000001bcd6b635a1249dfbe76c0d001592a7219a36cd9bbd002c7238")
@@ -534,11 +567,14 @@ func getpeerState() *peerSyncState {
 }
 
 func TestSyncManager_isSyncCandidate(t *testing.T) {
-	sm, dir, err := makeSyncManager()
+	testDir, _ := initTestEnv(t, []string{"--regtest"})
+	defer os.RemoveAll(testDir)
+	defer cleanup()
+
+	sm, err := makeSyncManager()
 	if err != nil {
 		t.Fatalf("construct syncmanager failed :%v\n", err)
 	}
-	defer os.RemoveAll(dir)
 	sm.chainParams = &model.TestNetParams
 	sm.Start()
 
@@ -590,11 +626,14 @@ func TestSyncManager_isSyncCandidate(t *testing.T) {
 }
 
 func TestSyncManager_alreadyHave(t *testing.T) {
-	sm, dir, err := makeSyncManager()
+	testDir, _ := initTestEnv(t, []string{"--regtest"})
+	defer os.RemoveAll(testDir)
+	defer cleanup()
+
+	sm, err := makeSyncManager()
 	if err != nil {
 		t.Fatalf("construct syncmanager failed :%v\n", err)
 	}
-	defer os.RemoveAll(dir)
 
 	hash1 := util.HashFromString("00000000000001bcd6b635a1249dfbe76c0d001592a7219a36cd9bbd002c7238")
 	ret := sm.alreadyHave(hash1)
@@ -609,7 +648,8 @@ func TestSyncManager_alreadyHave(t *testing.T) {
 }
 
 func TestSyncManager_handleInvMsg(t *testing.T) {
-	cleanup := initTestEnv()
+	testDir, _ := initTestEnv(t, []string{"--regtest"})
+	defer os.RemoveAll(testDir)
 	defer cleanup()
 
 	mp := mockPeerNotifier{}
@@ -666,7 +706,8 @@ func ProcessBlockHeaderReturnErr(headerList []*block.BlockHeader, lastIndex *blo
 }
 
 func TestSyncManager_handleHeadersMsg(t *testing.T) {
-	cleanup := initTestEnv()
+	testDir, _ := initTestEnv(t, []string{"--regtest"})
+	defer os.RemoveAll(testDir)
 	defer cleanup()
 
 	mp := mockPeerNotifier{}
@@ -736,11 +777,14 @@ func TestSyncManager_handleHeadersMsg(t *testing.T) {
 }
 
 func TestSyncManager_fetchHeaderBlocks(t *testing.T) {
-	sm, dir, err := makeSyncManager()
+	testDir, _ := initTestEnv(t, []string{"--regtest"})
+	defer os.RemoveAll(testDir)
+	defer cleanup()
+
+	sm, err := makeSyncManager()
 	if err != nil {
 		t.Fatalf("construct syncmanager failed :%v\n", err)
 	}
-	defer os.RemoveAll(dir)
 
 	hash1 := util.HashFromString("00000000000001bcd6b635a1249dfbe76c0d001592a7219a36cd9bbd002c7238")
 	p, _ := peer.NewOutboundPeer(peer1Cfg, "127.0.0.1:123", false)
@@ -794,11 +838,14 @@ func TestSyncManager_fetchHeaderBlocks(t *testing.T) {
 }
 
 func TestSyncManager_updateTxRequestState(t *testing.T) {
-	sm, dir, err := makeSyncManager()
+	testDir, _ := initTestEnv(t, []string{"--regtest"})
+	defer os.RemoveAll(testDir)
+	defer cleanup()
+
+	sm, err := makeSyncManager()
 	if err != nil {
 		t.Fatalf("construct syncmanager failed :%v\n", err)
 	}
-	defer os.RemoveAll(dir)
 
 	inpeer := peer.NewInboundPeer(peer1Cfg, false)
 	syncState := getpeerState()
@@ -823,11 +870,14 @@ func (peer *MockPeer) QueueMessage(msg wire.Message, doneChan chan<- struct{}) {
 }
 
 func TestSyncManager_fetchMissingTx(t *testing.T) {
-	sm, dir, err := makeSyncManager()
+	testDir, _ := initTestEnv(t, []string{"--regtest"})
+	defer os.RemoveAll(testDir)
+	defer cleanup()
+
+	sm, err := makeSyncManager()
 	if err != nil {
 		t.Fatalf("construct syncmanager failed :%v\n", err)
 	}
-	defer os.RemoveAll(dir)
 
 	inpeer := &MockPeer{MsgsToSend: make([]wire.Message, 0)}
 
@@ -851,7 +901,8 @@ func TestSyncManager_fetchMissingTx(t *testing.T) {
 }
 
 func TestSyncManager_handleBlockMsg(t *testing.T) {
-	cleanup := initTestEnv()
+	testDir, _ := initTestEnv(t, []string{"--regtest"})
+	defer os.RemoveAll(testDir)
 	defer cleanup()
 
 	sm, err := New(&Config{
@@ -920,11 +971,14 @@ func ProcessTxReturnErr(txn *tx.Tx, recentRejects map[util.Hash]struct{}, nodeID
 }
 
 func TestSyncManager_handleTxMsg(t *testing.T) {
-	sm, dir, err := makeSyncManager()
+	testDir, _ := initTestEnv(t, []string{"--regtest"})
+	defer os.RemoveAll(testDir)
+	defer cleanup()
+
+	sm, err := makeSyncManager()
 	if err != nil {
 		t.Fatalf("construct syncmanager failed :%v\n", err)
 	}
-	defer os.RemoveAll(dir)
 	sm.ProcessBlockCallBack = service.ProcessBlock
 	sm.ProcessBlockHeadCallBack = service.ProcessBlockHeader
 	sm.ProcessTransactionCallBack = service.ProcessTransaction
@@ -1010,21 +1064,43 @@ func generateBlocks(t *testing.T, generate int, maxTries uint64, verify bool) ([
 	return ret, nil
 }
 
-func initTestEnv() func() {
-	gChain := chain.GetInstance()
-	if gChain != nil {
-		*gChain = *chain.NewChain()
-	}
-
-	conf.InitConfig([]string{})
+func initTestEnv(t *testing.T, args []string) (dirpath string, err error) {
+	conf.Cfg = conf.InitConfig(args)
 
 	unitTestDataDirPath, err := conf.SetUnitTestDataDir(conf.Cfg)
-	fmt.Printf("test in temp dir: %s\n", unitTestDataDirPath)
+
 	if err != nil {
 		panic("init test env failed:" + err.Error())
 	}
 
-	model.SetRegTestParams()
+	if conf.Cfg.P2PNet.TestNet {
+		model.SetTestNetParams()
+	} else if conf.Cfg.P2PNet.RegTest {
+		model.SetRegTestParams()
+	}
+
+	//init log
+	logDir := filepath.Join(conf.DataDir, log.DefaultLogDirname)
+	if !conf.FileExists(logDir) {
+		err := os.MkdirAll(logDir, os.ModePerm)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	logConf := struct {
+		FileName string `json:"filename"`
+		Level    int    `json:"level"`
+	}{
+		FileName: logDir + "/" + conf.Cfg.Log.FileName + ".log",
+		Level:    log.GetLevel(conf.Cfg.Log.Level),
+	}
+
+	configuration, err := json.Marshal(logConf)
+	if err != nil {
+		panic(err)
+	}
+	log.Init(string(configuration))
 
 	// Init UTXO DB
 	utxoDbCfg := &db.DBOption{
@@ -1054,16 +1130,19 @@ func initTestEnv() func() {
 
 	model.ActiveNetParams.RequireStandard = false
 
-	cleanup := func() {
-		os.RemoveAll(unitTestDataDirPath)
-		log.Debug("cleanup test dir: %s", unitTestDataDirPath)
-	}
+	return unitTestDataDirPath, nil
+}
 
-	return cleanup
+func cleanup() {
+	gChain := chain.GetInstance()
+	if gChain != nil {
+		*gChain = *chain.NewChain()
+	}
 }
 
 func TestSyncManager_NewPeer(t *testing.T) {
-	cleanup := initTestEnv()
+	testDir, _ := initTestEnv(t, []string{"--regtest"})
+	defer os.RemoveAll(testDir)
 	defer cleanup()
 
 	sm, err := New(&Config{
@@ -1138,7 +1217,8 @@ func TestSyncManager_NewPeer(t *testing.T) {
 }
 
 func TestSyncManager_Current(t *testing.T) {
-	cleanup := initTestEnv()
+	testDir, _ := initTestEnv(t, []string{"--regtest"})
+	defer os.RemoveAll(testDir)
 	defer cleanup()
 
 	sm, err := New(&Config{
@@ -1160,7 +1240,8 @@ func TestSyncManager_Current(t *testing.T) {
 }
 
 func TestSyncManager_DonePeer(t *testing.T) {
-	cleanup := initTestEnv()
+	testDir, _ := initTestEnv(t, []string{"--regtest"})
+	defer os.RemoveAll(testDir)
 	defer cleanup()
 
 	sm, err := New(&Config{
@@ -1180,7 +1261,8 @@ func TestSyncManager_DonePeer(t *testing.T) {
 }
 
 func TestSyncManager_startsync_alreadysync(t *testing.T) {
-	cleanup := initTestEnv()
+	testDir, _ := initTestEnv(t, []string{"--regtest"})
+	defer os.RemoveAll(testDir)
 	defer cleanup()
 	sm, err := New(&Config{
 		PeerNotifier: &mockPeerNotifier{},
@@ -1205,11 +1287,14 @@ func TestSyncManager_startsync_alreadysync(t *testing.T) {
 }
 
 func TestSyncManager_isSyncCandidate_regress(t *testing.T) {
-	sm, dir, err := makeSyncManager()
+	testDir, _ := initTestEnv(t, []string{"--regtest"})
+	defer os.RemoveAll(testDir)
+	defer cleanup()
+
+	sm, err := makeSyncManager()
 	if err != nil {
 		t.Fatalf("construct syncmanager failed :%v\n", err)
 	}
-	defer os.RemoveAll(dir)
 	sm.chainParams = &model.RegressionNetParams
 
 	p, _ := peer.NewOutboundPeer(peer1Cfg, "10.0.0.1:123", false)
@@ -1305,13 +1390,14 @@ func initBlkIdx() {
 }
 
 func TestSyncManager_lastAccouncedBlock(t *testing.T) {
-	//	cleanup := initTestEnv()
-	//	defer cleanup()
-	sm, dir, err := makeSyncManager()
+	testDir, _ := initTestEnv(t, []string{"--regtest"})
+	defer os.RemoveAll(testDir)
+	defer cleanup()
+
+	sm, err := makeSyncManager()
 	if err != nil {
 		t.Fatalf("construct syncmanager failed :%v\n", err)
 	}
-	defer os.RemoveAll(dir)
 
 	p, _ := peer.NewOutboundPeer(peer1Cfg, "10.0.0.1:123", false)
 	idx := lastAnnouncedBlock(p)
@@ -1347,11 +1433,14 @@ func TestSyncManager_lastAccouncedBlock(t *testing.T) {
 }
 
 func TestSyncManager_handleMinedBlockMsg(t *testing.T) {
-	sm, dir, err := makeSyncManager()
+	testDir, _ := initTestEnv(t, []string{"--regtest"})
+	defer os.RemoveAll(testDir)
+	defer cleanup()
+
+	sm, err := makeSyncManager()
 	if err != nil {
 		t.Fatalf("construct syncmanager failed :%v\n", err)
 	}
-	defer os.RemoveAll(dir)
 	bl := &block.Block{}
 	msg := &minedBlockMsg{block: bl, reply: nil}
 	sm.ProcessBlockCallBack = service.ProcessBlock
@@ -1360,11 +1449,14 @@ func TestSyncManager_handleMinedBlockMsg(t *testing.T) {
 }
 
 func TestSyncManager_fetchBlocks(t *testing.T) {
-	sm, dir, err := makeSyncManager()
+	testDir, _ := initTestEnv(t, []string{"--regtest"})
+	defer os.RemoveAll(testDir)
+	defer cleanup()
+
+	sm, err := makeSyncManager()
 	if err != nil {
 		t.Fatalf("construct syncmanager failed :%v\n", err)
 	}
-	defer os.RemoveAll(dir)
 
 	hash1 := util.HashFromString("00000000000001bcd6b635a1249dfbe76c0d001592a7219a36cd9bbd002c7238")
 	p, _ := peer.NewOutboundPeer(peer1Cfg, "127.0.0.1:123", false)

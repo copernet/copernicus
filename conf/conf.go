@@ -387,6 +387,7 @@ func SetUnitTestDataDir(config *Configuration) (dirPath string, err error) {
 	}
 
 	DataDir = testDataDir
+	fmt.Printf("Unit test temp dir: %s\n", DataDir)
 
 	return testDataDir, nil
 }

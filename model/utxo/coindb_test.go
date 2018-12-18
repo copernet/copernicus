@@ -3,11 +3,9 @@ package utxo
 import (
 	"bytes"
 	"github.com/copernet/copernicus/conf"
-	"github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/model/script"
 	"github.com/copernet/copernicus/model/txout"
-	"github.com/copernet/copernicus/persist/blkdb"
 	"github.com/copernet/copernicus/persist/db"
 	"github.com/copernet/copernicus/util"
 	"github.com/copernet/copernicus/util/amount"
@@ -40,8 +38,6 @@ func TestCoinsDB(t *testing.T) {
 	if !reflect.DeepEqual(dbw, dbObj.dbw) {
 		t.Errorf("dbw get by GetDBW is not equal to obj.dbw")
 	}
-
-	chain.InitGlobalChain(blkdb.GetInstance())
 
 	if err != nil {
 		t.Fatal(err)

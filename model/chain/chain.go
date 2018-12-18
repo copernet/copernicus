@@ -141,7 +141,7 @@ func (c *Chain) loadBlockIndex(btd *blkdb.BlockTreeDB) bool {
 			}
 		}
 	}
-	log.Debug("LoadBlockIndexDB, BlockIndexMap len:%d, Branch len:%d, Orphan len:%d",
+	log.Debug("loadBlockIndex, BlockIndexMap len:%d, Branch len:%d, Orphan len:%d",
 		len(globalBlockIndexMap), len(branch), c.ChainOrphanLen())
 
 	// Check presence of block index files
@@ -162,7 +162,7 @@ func (c *Chain) loadBlockIndex(btd *blkdb.BlockTreeDB) bool {
 		file := disk.OpenBlockFile(pos, true)
 		if file == nil {
 			log.Debug("Check block file: %d error, please delete blocks and chainstate and run again", pos.File)
-			panic("LoadBlockIndexDB: check block file err")
+			panic("loadBlockIndex: check block file err")
 		}
 		file.Close()
 	}
@@ -180,7 +180,7 @@ func (c *Chain) loadBlockIndex(btd *blkdb.BlockTreeDB) bool {
 		}
 		// init active chain by tip[load from db]
 		c.SetTip(tip)
-		log.Debug("LoadBlockIndexDB(): hashBestChain=%s height=%d date=%s, tiphash:%s\n",
+		log.Debug("loadBlockIndex(): hashBestChain=%s height=%d date=%s, tiphash:%s\n",
 			c.Tip().GetBlockHash(), c.Height(),
 			time.Unix(int64(c.Tip().GetBlockTime()), 0).Format("2006-01-02 15:04:05"),
 			c.Tip().GetBlockHash())

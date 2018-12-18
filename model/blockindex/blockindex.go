@@ -164,6 +164,9 @@ func (bIndex *BlockIndex) GetBlockTimeMax() uint32 {
 }
 
 func (bIndex *BlockIndex) GetMedianTimePast() int64 {
+	if bIndex == nil {
+		return 0
+	}
 	median := make([]int64, 0, medianTimeSpan)
 	index := bIndex
 	for i := 0; i < medianTimeSpan && index != nil; i++ {
