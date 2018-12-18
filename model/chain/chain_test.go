@@ -277,10 +277,7 @@ func TestChain_InitLoad(t *testing.T) {
 }
 
 func TestChain_GetBlockScriptFlags(t *testing.T) {
-	//makeTestBlockTreeDB()
-	//InitGlobalChain(blkdb.GetInstance())
-	//testDir, err := initTestEnv(t, []string{"--regtest"})
-	testDir, err := initTestEnv(t, []string{""})
+	testDir, err := initTestEnv(t, []string{"--testnet"})
 	if err != nil {
 		t.Errorf("initTestEnv Error")
 	}
@@ -495,10 +492,12 @@ func initTestEnv(t *testing.T, args []string) (dirpath string, err error) {
 }
 
 func cleanTestEnv() {
-	gChain := GetInstance()
-	if gChain != nil {
-		*gChain = *NewChain()
-	}
+	globalChain = nil
+	//gChain := GetInstance()
+	//if gChain != nil {
+	//	*gChain = *NewChain()
+	//}
+	//gChain.params = nil
 }
 
 func initGenesis() {
