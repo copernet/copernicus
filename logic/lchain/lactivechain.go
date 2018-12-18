@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/log"
+	"github.com/copernet/copernicus/logic/lblock"
 	"github.com/copernet/copernicus/logic/lmempool"
 	"github.com/copernet/copernicus/model/block"
 	"github.com/copernet/copernicus/model/blockindex"
@@ -130,7 +131,7 @@ func sendNotifications(pindexOldTip *blockindex.BlockIndex, pblock *block.Block)
 	gChain.SendNotification(chain.NTBlockConnected, pblock)
 
 	forkIndex := gChain.FindFork(pindexOldTip)
-	event := chain.TipUpdatedEvent{TipIndex: gChain.Tip(), ForkIndex: forkIndex, IsInitialDownload: IsInitialBlockDownload()}
+	event := chain.TipUpdatedEvent{TipIndex: gChain.Tip(), ForkIndex: forkIndex, IsInitialDownload: lblock.IsInitialBlockDownload()}
 	gChain.SendNotification(chain.NTChainTipUpdated, &event)
 }
 

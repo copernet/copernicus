@@ -10,8 +10,8 @@ RUN curl https://glide.sh/get | sh
 RUN go get golang.org/x/tools/cmd/cover
 RUN go get github.com/mattn/goveralls
 
-WORKDIR /go/src/github.com/copernet/
-RUN git clone https://github.com/copernet/copernicus.git
+WORKDIR /go/src/github.com/copernet
+COPY ./ /go/src/github.com/copernet/copernicus
 WORKDIR /go/src/github.com/copernet/copernicus
 RUN glide install
 RUN go get -u github.com/alecthomas/gometalinter

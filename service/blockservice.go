@@ -85,11 +85,6 @@ func ProcessNewBlock(pblock *block.Block, forceProcessing bool, fNewBlock *bool,
 		return err
 	}
 
-	gChain := chain.GetInstance()
-	if !lchain.IsInitialBlockDownload() && *gChain.Tip().GetBlockHash() == pblock.Header.HashPrevBlock {
-		gChain.SendNotification(chain.NTNewPoWValidBlock, pblock)
-	}
-
 	if err := lchain.CheckBlockIndex(); err != nil {
 		log.Error("check block index failed, please check: %v", err)
 		return err

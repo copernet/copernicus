@@ -407,6 +407,10 @@ type AddrFunc func(remoteAddr *wire.NetAddress) *wire.NetAddress
 type HostToNetAddrFunc func(host string, port uint16,
 	services wire.ServiceFlag) (*wire.NetAddress, error)
 
+type MsgSender interface {
+	QueueMessage(msg wire.Message, doneChan chan<- struct{})
+}
+
 // NOTE: The overall data flow of a peer is split into 3 goroutines.  Inbound
 // messages are read via the inHandler goroutine and generally dispatched to
 // their own handler.  For inbound data-related messages such as blocks,
@@ -984,28 +988,6 @@ func (p *Peer) PushAddrMsg(addresses []*wire.NetAddress) ([]*wire.NetAddress, er
 
 	p.QueueMessage(msg, nil)
 	return msg.AddrList, nil
-}
-
-// PushGetBlocksMsg sends a getblocks message for the provided block locator
-// and stop hash.  It will ignore back-to-back duplicate requests.
-//
-// This function is safe for concurrent access.
-func (p *Peer) PushGetBlocksMsg(locator chain.BlockLocator, stopHash *util.Hash) error {
-	// Extract the begin hash from the block locator, if one was specified,
-	// to use for filtering duplicate getblocks requests.
-	blkHashs := locator.GetBlockHashList()
-
-	// Construct the getblocks request and queue it to be sent.
-	msg := wire.NewMsgGetBlocks(stopHash)
-	for i := 0; i < len(blkHashs); i++ {
-		err := msg.AddBlockLocatorHash(&blkHashs[i])
-		if err != nil {
-			return err
-		}
-	}
-	p.QueueMessage(msg, nil)
-	log.Trace("send Blocks Msg, Request locator to stop hash for these blocks hash ...")
-	return nil
 }
 
 // PushGetHeadersMsg sends a getblocks message for the provided block locator
@@ -1685,11 +1667,7 @@ func (p *Peer) AddHeadersToSendQ(headers []*block.BlockHeader) {
 				msgHeaders := wire.NewMsgHeaders()
 				for e := headerSendQueue.Front(); e != nil; e = headerSendQueue.Front() {
 					header := headerSendQueue.Remove(e).(*block.BlockHeader)
-					if err := msgHeaders.AddBlockHeader(header); err != nil {
-						log.Error("Failed to add block"+
-							" header: %v", err)
-						//continue
-					}
+					msgHeaders.AddBlockHeader(header)
 				}
 				if len(msgHeaders.Headers) > 0 {
 					p.outputQueue <- outMsg{msg: msgHeaders}

@@ -250,6 +250,10 @@ func AcceptBlock(pblock *block.Block, fRequested bool, inDbp *block.DiskBlockPos
 		return
 	}
 
+	if !IsInitialBlockDownload() && *gChain.Tip().GetBlockHash() == pblock.Header.HashPrevBlock {
+		gChain.SendNotification(chain.NTNewPoWValidBlock, pblock)
+	}
+
 	// inDbp is nil indicate that this block haven't been write to disk
 	// when reindex, inDbp is not nil, and outDbp will be same as inDbp, and block will not be write to disk
 	outDbp, err = WriteBlockToDisk(bIndex, pblock, inDbp)
@@ -311,4 +315,10 @@ func AcceptBlockHeader(bh *block.BlockHeader) (*blockindex.BlockIndex, error) {
 	}
 
 	return bIndex, nil
+}
+
+// IsInitialBlockDownload Check whether we are doing an initial block download
+// (synchronizing from disk or network)
+func IsInitialBlockDownload() bool {
+	return persist.Reindex || !chain.GetInstance().IsAlmostSynced()
 }

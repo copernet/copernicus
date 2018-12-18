@@ -406,10 +406,6 @@ func (c *Chain) GetLocator(index *blockindex.BlockIndex) *BlockLocator {
 			index = index.GetAncestor(height)
 		}
 
-		if len(blockHashList) < 2 {
-			log.Trace("GetLocator from hash : %s, height : %d .",
-				index.GetBlockHash(), index.Height)
-		}
 		if len(blockHashList) > 10 {
 			step *= 2
 		}
@@ -530,8 +526,11 @@ func (c *Chain) AddToBranch(bis *blockindex.BlockIndex) error {
 		childList, ok := c.orphan[*preHash]
 		if ok {
 			for _, child := range childList {
-				q.Add(child)
+				if child.HasData() {
+					q.Add(child)
+				}
 			}
+
 			delete(c.orphan, *preHash)
 		}
 	}

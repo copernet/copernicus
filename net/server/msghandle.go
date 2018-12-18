@@ -363,7 +363,7 @@ func handleGetNetworkInfo() (*btcjson.GetNetworkInfoResult, error) {
 		Version:          int(verNum),
 		SubVersion:       userAgent,
 		ProtocolVersion:  wire.ProtocolVersion,
-		LocalServices:    fmt.Sprintf("%016x", msgHandle.services),
+		LocalServices:    fmt.Sprintf("%016x", uint64(msgHandle.services)),
 		LocalRelay:       !conf.Cfg.P2PNet.BlocksOnly,
 		TimeOffset:       util.GetTimeOffsetSec(),
 		Connections:      msgHandle.ConnectedCount(),

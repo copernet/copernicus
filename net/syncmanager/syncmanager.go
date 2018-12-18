@@ -6,6 +6,7 @@ package syncmanager
 
 import (
 	"container/list"
+	"github.com/copernet/copernicus/logic/lblock"
 	"github.com/copernet/copernicus/model/pow"
 	"net"
 	"sync"
@@ -14,7 +15,6 @@ import (
 
 	"github.com/copernet/copernicus/errcode"
 	"github.com/copernet/copernicus/log"
-	"github.com/copernet/copernicus/logic/lchain"
 	"github.com/copernet/copernicus/logic/lmempool"
 	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/block"
@@ -61,7 +61,7 @@ const (
 	MAX_UNCONNECTING_HEADERS = 10
 
 	// fetchInterval is the interval to fetchHeaderBlocks for all peer
-	fetchInterval = 1 * time.Second
+	fetchInterval = 20 * time.Second
 
 	// BLOCK_STALLING_TIMEOUT in microsecond during which a peer must stall block
 	// download progress before being disconnected
@@ -197,6 +197,58 @@ type peerSyncState struct {
 	requestedTxns       map[util.Hash]struct{}
 	requestedBlocks     map[util.Hash]struct{}
 	unconnectingHeaders int
+	headersSyncTimeout  int64
+}
+
+func (pss *peerSyncState) onStartSync(syncPeer *peer.Peer) {
+	bestHeader := chain.GetInstance().GetIndexBestHeader()
+
+	timeToCatchUp := util.GetAdjustedTimeSec() - int64(bestHeader.GetBlockTime())
+	headersToSync := timeToCatchUp / int64(model.ActiveNetParams.TargetTimePerBlock)
+
+	// Headers download timeout expressed in microseconds.
+	// Timeout = base + per_header * (expected number of headers)
+	const timeoutBase = 15 * 60 * 1000000 // 15 minutes
+	const timeoutPerHeader = 1000         // 1ms/header
+
+	pss.headersSyncTimeout =
+		util.GetTimeMicroSec() +
+			timeoutBase +
+			timeoutPerHeader*headersToSync
+
+	log.Info("start to sync %d headers from peer(%s),", headersToSync, syncPeer.Addr())
+}
+
+func (sm *SyncManager) checkIBDHeadersSync() {
+	if sm.current() || sm.syncPeer == nil {
+		return
+	}
+
+	state := sm.peerStates[sm.syncPeer]
+
+	bestHeader := chain.GetInstance().GetIndexBestHeader()
+
+	if int64(bestHeader.GetBlockTime()) > (util.GetAdjustedTimeSec() - 24*60*60) {
+		log.Info("headers synced from peer:%s", sm.syncPeer.Addr())
+		//reset the timeout so we can't trigger disconnect later.
+		state.headersSyncTimeout = 0
+		return
+	}
+
+	if state.headersSyncTimeout > 0 &&
+		util.GetTimeMicroSec() > state.headersSyncTimeout {
+
+		//TODO: nPreferredDownload - state.fPreferredDownload >= 1
+		if !sm.syncPeer.IsWhitelisted() {
+			sm.syncPeer.Disconnect()
+			log.Warn("disconnect timeout sync peer:%s", sm.syncPeer.Addr())
+		}
+
+		state.headersSyncTimeout = 0
+		sm.syncPeer = nil
+		sm.startSync()
+		log.Warn("sync headers from peer timeout, restart sync")
+	}
 }
 
 // SyncManager is used to communicate block related messages with peers. The
@@ -298,12 +350,7 @@ func (sm *SyncManager) startSync() {
 	// Start syncing from the best peer if one was selected.
 	if bestPeer != nil {
 		activeChain := chain.GetInstance()
-		pindexBestHeader := activeChain.GetIndexBestHeader()
-		if pindexBestHeader == nil {
-			pindexBestHeader = activeChain.Tip()
-			activeChain.SetIndexBestHeader(pindexBestHeader)
-		}
-		pindexStart := pindexBestHeader
+		pindexStart := activeChain.GetIndexBestHeader()
 		/**
 		 * If possible, start at the block preceding the currently best
 		 * known header. This ensures that we always get a non-empty list of
@@ -322,6 +369,9 @@ func (sm *SyncManager) startSync() {
 		bestPeer.PushGetHeadersMsg(*locator, &zeroHash)
 
 		sm.syncPeer = bestPeer
+		state := sm.peerStates[sm.syncPeer]
+		state.onStartSync(sm.syncPeer)
+
 		if sm.current() {
 			log.Debug("request mempool in startSync")
 			bestPeer.RequestMemPool()
@@ -381,14 +431,9 @@ func (sm *SyncManager) handleNewPeerMsg(peer *peer.Peer) {
 		requestedBlocks: make(map[util.Hash]struct{}),
 	}
 
-	if !lchain.IsInitialBlockDownload() && peer.VerAckReceived() {
+	if !lblock.IsInitialBlockDownload() && peer.VerAckReceived() {
 		gChain := chain.GetInstance()
-		pindexBestHeader := gChain.GetIndexBestHeader()
-		if pindexBestHeader == nil {
-			pindexBestHeader = gChain.Tip()
-			gChain.SetIndexBestHeader(pindexBestHeader)
-		}
-		pindexStart := pindexBestHeader
+		pindexStart := gChain.GetIndexBestHeader()
 		if pindexStart.Prev != nil {
 			pindexStart = pindexStart.Prev
 		}
@@ -463,8 +508,7 @@ func (sm *SyncManager) alreadyHave(txHash *util.Hash) bool {
 		return true
 	}
 
-	have, err := sm.haveInventory(wire.NewInvVect(wire.InvTypeTx, txHash))
-	return err == nil && have
+	return sm.haveInventory(wire.NewInvVect(wire.InvTypeTx, txHash))
 }
 
 // handleTxMsg handles transaction messages from all peers.
@@ -489,7 +533,7 @@ func (sm *SyncManager) handleTxMsg(tmsg *txMsg) {
 
 	sm.updateTxRequestState(state, txHash, rejectTxs)
 
-	fetchMissingTx(missTxs, peer)
+	sm.fetchMissingTx(missTxs, peer)
 
 	if err != nil {
 		if rejectCode, reason, ok := errcode.IsRejectCode(err); ok {
@@ -525,25 +569,26 @@ func (sm *SyncManager) updateTxRequestState(state *peerSyncState, txHash util.Ha
 	for _, rejectTx := range rejectTxs {
 		sm.rejectedTxns[rejectTx] = struct{}{}
 	}
-	sm.limitMap(sm.rejectedTxns, maxRejectedTxns)
+	limitMap(sm.rejectedTxns, maxRejectedTxns)
 }
 
-func fetchMissingTx(missTxs []util.Hash, peer *peer.Peer) {
-	log.Warn("request lost tx %q", missTxs)
-	invMsg := wire.NewMsgInvSizeHint(uint(len(missTxs)))
+func (sm *SyncManager) fetchMissingTx(missTxs []util.Hash, peer peer.MsgSender) {
+	getData := wire.NewMsgGetDataSizeHint(uint(len(missTxs)))
 	for _, hash := range missTxs {
-		iv := wire.NewInvVect(wire.InvTypeTx, &hash)
-		invMsg.AddInvVect(iv)
+		if !sm.alreadyHave(&hash) {
+			getData.AddInvVect(wire.NewInvVect(wire.InvTypeTx, &hash))
+		}
 	}
-	if len(missTxs) > 0 {
-		peer.QueueMessage(invMsg, nil)
+
+	if len(getData.InvList) > 0 {
+		peer.QueueMessage(getData, nil)
 	}
 }
 
 // current returns true if we believe we are synced with our peers, false if we
 // still have blocks to check
 func (sm *SyncManager) current() bool {
-	if !chain.GetInstance().IsCurrent() {
+	if lblock.IsInitialBlockDownload() {
 		return false
 	}
 
@@ -589,7 +634,7 @@ func (sm *SyncManager) handleBlockMsg(bmsg *blockMsg) {
 	// Process all blocks from whitelisted peers, even if not requested,
 	// unless we're still syncing with the network. Such an unrequested
 	// block may still be processed, subject to the conditions in AcceptBlock().
-	fromWhitelist := peer.IsWhitelisted() && !lchain.IsInitialBlockDownload()
+	fromWhitelist := peer.IsWhitelisted() && !lblock.IsInitialBlockDownload()
 	_, requested := sm.requestedBlocks[blockHash]
 
 	// Remove block from request maps. Either chain will know about it and
@@ -677,10 +722,9 @@ func (sm *SyncManager) handleMinedBlockMsg(mbmsg *minedBlockMsg) {
 	log.Debug("process mined block(%v) done via submitblock", &hash)
 }
 
-func lastAccouncedBlock(peer *peer.Peer) *blockindex.BlockIndex {
+func lastAnnouncedBlock(peer *peer.Peer) *blockindex.BlockIndex {
 	pindexBestKnownHash := peer.LastAnnouncedBlock()
 	if pindexBestKnownHash == nil {
-		log.Info("peer(%d) best known block nil, forgive temporary", peer.ID())
 		return nil
 	}
 
@@ -695,7 +739,7 @@ func lastAccouncedBlock(peer *peer.Peer) *blockindex.BlockIndex {
 
 func (sm *SyncManager) syncPoints(peer *peer.Peer) (pindexWalk, pindexBestKnownBlock *blockindex.BlockIndex) {
 	gChain := chain.GetInstance()
-	pindexBestKnownBlock = lastAccouncedBlock(peer)
+	pindexBestKnownBlock = lastAnnouncedBlock(peer)
 	if pindexBestKnownBlock == nil {
 		// update best block of this peer
 		pindexStart := gChain.GetIndexBestHeader()
@@ -707,7 +751,7 @@ func (sm *SyncManager) syncPoints(peer *peer.Peer) (pindexWalk, pindexBestKnownB
 		return nil, nil
 	}
 
-	if lchain.IsInitialBlockDownload() {
+	if lblock.IsInitialBlockDownload() {
 		if gChain.Tip().Height > pindexBestKnownBlock.Height ||
 			gChain.Tip().ChainWork.Cmp(&pindexBestKnownBlock.ChainWork) == 1 {
 			return nil, nil
@@ -722,41 +766,31 @@ func (sm *SyncManager) syncPoints(peer *peer.Peer) (pindexWalk, pindexBestKnownB
 // list of blocks to be downloaded based on the current known headers.
 // Download blocks via several peers parallel
 func (sm *SyncManager) fetchHeaderBlocks(peer *peer.Peer) {
-	reqNum := len(sm.requestedBlocks)
-	if 0 != reqNum {
-		log.Debug("now %d requestedBlocks", reqNum)
-	}
 	if !sm.isSyncCandidate(peer) {
-		log.Info("peer(%d)%s not a sync candidate, forgive fetch", peer.ID(), peer.Addr())
 		return
 	}
 
 	if !peer.VerAckReceived() {
-		log.Info("peer(%d)%s VerAck not recved, do not use it", peer.ID(), peer.Addr())
 		return
 	}
 	gChain := chain.GetInstance()
 	peerState, exists := sm.peerStates[peer]
 	if !exists {
-		log.Error("fetchHeaderBlocks called with peer state nil")
 		return
 	}
 
 	if len(peerState.requestedBlocks) == MAX_BLOCKS_IN_TRANSIT_PER_PEER {
-		log.Debug("peer(%d) has full requestedBlocks, don't GetData any more", peer.ID())
 		return
 	}
 
 	minWorkSum := pow.MiniChainWork()
 	pindexBestHeader := gChain.GetIndexBestHeader()
 	if pindexBestHeader.ChainWork.Cmp(&minWorkSum) == -1 {
-		log.Info("pindexBestHeader.ChainWork less than minChainWork, wait header download", peer.ID())
 		return
 	}
 
 	pindexWalk, pindexBestKnownBlock := sm.syncPoints(peer)
 	if pindexWalk == nil || pindexBestKnownBlock == nil {
-		log.Debug("fetchHeaderBlocks can not find block hashes to fetch from peer(%d) ", peer.ID())
 		return
 	}
 
@@ -767,7 +801,6 @@ func (sm *SyncManager) fetchHeaderBlocks(peer *peer.Peer) {
 
 	tipWork := gChain.Tip().ChainWork
 	if pindexBestKnownBlock.ChainWork.Cmp(&tipWork) == -1 {
-		log.Info("peer(%d) ChainWork less than tipWork, has nothing interesting", peer.ID())
 		return
 	}
 
@@ -852,11 +885,11 @@ func (sm *SyncManager) fetchHeadersToConnect(peer *peer.Peer, state *peerSyncSta
 
 	//peer from functional test may send version message with -1 height,
 	//and failed to be selected as syncPeer
-	if lchain.IsInitialBlockDownload() && sm.syncPeer == nil {
+	if lblock.IsInitialBlockDownload() && sm.syncPeer == nil {
 		sm.syncPeer = peer
 	}
 
-	if lchain.IsInitialBlockDownload() && sm.syncPeer != peer {
+	if lblock.IsInitialBlockDownload() && sm.syncPeer != peer {
 		log.Debug("IBD: unrequested headers from nonSyncPeer: %v, maybe new header announce", peer.Addr())
 		//ignore headers from nonSyncPeer, but we can try to get blocks from the peer
 		sm.fetchHeaderBlocks(peer)
@@ -868,7 +901,7 @@ func (sm *SyncManager) fetchHeadersToConnect(peer *peer.Peer, state *peerSyncSta
 	peer.PushGetHeadersMsg(*gChain.GetLocator(pindexBestHeader), &zeroHash)
 
 	log.Debug("recv headers cannot connect, send getheaders (%d) to peer %v. IBD:%t, unconnectingHeaders:%d",
-		pindexBestHeader.Height, peer.Addr(), lchain.IsInitialBlockDownload(),
+		pindexBestHeader.Height, peer.Addr(), lblock.IsInitialBlockDownload(),
 		state.unconnectingHeaders)
 
 	if state.unconnectingHeaders%MAX_UNCONNECTING_HEADERS == 0 {
@@ -1022,47 +1055,40 @@ func (sm *SyncManager) blocksToFetch(pindexLast blockindex.BlockIndex) (*list.Li
 // inventory can be when it is in different states such as blocks that are part
 // of the main chain, on a side chain, in the orphan pool, and transactions that
 // are in the memory pool (either the main pool or orphan pool).
-func (sm *SyncManager) haveInventory(invVect *wire.InvVect) (bool, error) {
+func (sm *SyncManager) haveInventory(invVect *wire.InvVect) bool {
 	activeChain := chain.GetInstance()
 	switch invVect.Type {
 	case wire.InvTypeBlock:
 		// Ask chain if the block is known to it in any form (main
 		// chain, side chain, or orphan).
 		blkIndex := activeChain.FindBlockIndex(invVect.Hash)
-		if blkIndex == nil {
-			return false, nil
-		}
-		if blkIndex.HasData() {
-			return true, nil
-		}
-		return false, nil
+		return blkIndex != nil && blkIndex.HasData()
 
 	case wire.InvTypeTx:
 		// Ask the transaction memory pool if the transaction is known
 		// to it in any form (main pool or orphan).
+
 		if lmempool.FindTxInMempool(mempool.GetInstance(), invVect.Hash) != nil {
-			return true, nil
+			return true
 		}
 		// Check if the transaction exists from the point of view of the
 		// end of the main chain.
 		pcoins := utxo.GetUtxoCacheInstance()
 		out := outpoint.OutPoint{Hash: invVect.Hash, Index: 0}
 		if pcoins.GetCoin(&out) != nil {
-			return true, nil
+			return true
 		}
 		out.Index = 1
 		if pcoins.GetCoin(&out) != nil {
-			return true, nil
+			return true
 		}
-		if lmempool.FindOrphanTxInMemPool(mempool.GetInstance(), invVect.Hash) != nil {
-			return true, nil
-		}
-		return false, nil
+
+		return lmempool.FindOrphanTxInMemPool(mempool.GetInstance(), invVect.Hash) != nil
 	}
 
 	// The requested inventory is is an unsupported type, so just claim
 	// it is known to avoid requesting it.
-	return true, nil
+	return true
 }
 
 // handleInvMsg handles inv messages from all peers.
@@ -1075,7 +1101,7 @@ func (sm *SyncManager) handleInvMsg(imsg *invMsg) {
 		return
 	}
 
-	log.Trace("Received INV msg, And current IBD:%v", lchain.IsInitialBlockDownload())
+	log.Trace("Received INV msg, And current IBD:%v", lblock.IsInitialBlockDownload())
 
 	// Attempt to find the final block in the inventory list.  There may
 	// not be one.
@@ -1126,28 +1152,22 @@ func (sm *SyncManager) handleInvMsg(imsg *invMsg) {
 			continue
 		}
 
-		// Add the inventory to the cache of known inventory
-		// for the peer.
+		// Add the inventory to the cache of known inventory for the peer.
 		peer.AddKnownInventory(iv)
 
-		// Request the inventory if we don't already have it.
-		haveInv, err := sm.haveInventory(iv)
-		if err != nil {
-			log.Warn("Unexpected failure when checking for "+
-				"existing inventory during inv message "+
-				"processing: %v", err)
-			continue
-		}
-		if !haveInv {
-			if iv.Type == wire.InvTypeTx {
-				// Skip the transaction if it has already been
-				// rejected.
-				if _, exists := sm.rejectedTxns[iv.Hash]; exists {
-					continue
-				}
+		if iv.Type == wire.InvTypeTx {
+			if lblock.IsInitialBlockDownload() {
+				continue
 			}
 
-			// Add it to the request queue.
+			// Skip the transaction if it has already been rejected.
+			if _, exists := sm.rejectedTxns[iv.Hash]; exists {
+				continue
+			}
+		}
+
+		// Request the inventory if we don't already have it.
+		if haveInv := sm.haveInventory(iv); !haveInv {
 			state.requestQueue = append(state.requestQueue, iv)
 		}
 	}
@@ -1183,9 +1203,12 @@ func (sm *SyncManager) handleInvMsg(imsg *invMsg) {
 			// Request the transaction if there is not already a
 			// pending request.
 			if _, exists := sm.requestedTxns[iv.Hash]; !exists {
+				limitMap(sm.requestedTxns, maxRequestedTxns)
 				sm.requestedTxns[iv.Hash] = struct{}{}
-				sm.limitMap(sm.requestedTxns, maxRequestedTxns)
+
+				limitMap(state.requestedTxns, maxRequestedTxns)
 				state.requestedTxns[iv.Hash] = struct{}{}
+
 				gdmsg.AddInvVect(iv)
 				numRequested++
 			}
@@ -1205,7 +1228,7 @@ func (sm *SyncManager) handleInvMsg(imsg *invMsg) {
 // limitMap is a helper function for maps that require a maximum limit by
 // evicting a random transaction if adding a new value would cause it to
 // overflow the maximum allowed.
-func (sm *SyncManager) limitMap(m map[util.Hash]struct{}, limit int) {
+func limitMap(m map[util.Hash]struct{}, limit int) {
 	if len(m)+1 > limit {
 		// Remove a random entry from the map.  For most compilers, Go's
 		// range statement iterates starting at a random item although
@@ -1261,6 +1284,7 @@ out:
 		select {
 		//for all peer to try fetchHeaderBlocks
 		case <-fetchTicker.C:
+			sm.checkIBDHeadersSync()
 			sm.scanToFetchHeaderBlocks()
 
 		//business msg

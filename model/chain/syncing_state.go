@@ -4,25 +4,28 @@ import (
 	"github.com/copernet/copernicus/model/blockindex"
 	"github.com/copernet/copernicus/model/pow"
 	"github.com/copernet/copernicus/util"
+	"sync/atomic"
 )
 
-const defaultMaxTipAge = 24 * 60 * 60
-
 type SyncingState struct {
-	isAlmostSynced bool
+	isCurrent int32
 }
 
 func (ds *SyncingState) UpdateSyncingState() {
-	if ds.isAlmostSynced || GetInstance().Tip() == nil {
+	isCurrent := atomic.LoadInt32(&ds.isCurrent) == 1
+	if isCurrent || GetInstance().Tip() == nil {
 		return
 	}
 
 	tip := GetInstance().Tip()
-	ds.isAlmostSynced = isRecentTip(tip) && hasEnoughWork(tip)
+
+	if tipInOneDay(tip) && hasEnoughWork(tip) {
+		atomic.StoreInt32(&ds.isCurrent, 1)
+	}
 }
 
-func isRecentTip(tip *blockindex.BlockIndex) bool {
-	return int64(tip.GetBlockTime()) > util.GetTimeSec()-defaultMaxTipAge
+func tipInOneDay(tip *blockindex.BlockIndex) bool {
+	return int64(tip.GetBlockTime()) > util.GetTimeSec()-24*60*60
 }
 
 func hasEnoughWork(tip *blockindex.BlockIndex) bool {
@@ -31,5 +34,5 @@ func hasEnoughWork(tip *blockindex.BlockIndex) bool {
 }
 
 func (ds *SyncingState) IsAlmostSynced() bool {
-	return ds.isAlmostSynced
+	return atomic.LoadInt32(&ds.isCurrent) == 1
 }
