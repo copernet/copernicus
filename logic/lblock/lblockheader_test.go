@@ -3,6 +3,7 @@ package lblock
 import (
 	"bytes"
 	"github.com/stretchr/testify/assert"
+	"os"
 	"testing"
 
 	"github.com/copernet/copernicus/model/block"
@@ -109,6 +110,13 @@ func TestCheckBlockHeader(t *testing.T) {
 }
 
 func TestContextualCheckBlockHeader(t *testing.T) {
+	testDir, err := initTestEnv(t, []string{"--testnet"})
+	if err != nil {
+		t.Errorf("initTestEnv Error")
+	}
+	defer os.RemoveAll(testDir)
+	defer cleanTestEnv()
+
 	blk1 := getBlock(blk1str)
 	blk2 := getBlock(blk2str)
 	blk1Index := blockindex.NewBlockIndex(&blk1.Header)
@@ -119,15 +127,15 @@ func TestContextualCheckBlockHeader(t *testing.T) {
 	testHeader = blk2.Header
 	testHeader.Bits = 123456
 
-	assert.NoError(t, ContextualCheckBlockHeader(&testHeader, blk1Index, int64(testHeader.Time)))
+	assert.Error(t, ContextualCheckBlockHeader(&testHeader, blk1Index, int64(testHeader.Time)))
 
 	testHeader = blk2.Header
 	testHeader.Time = blk1.Header.Time - 1
-	assert.NoError(t, ContextualCheckBlockHeader(&testHeader, blk1Index, int64(testHeader.Time)))
+	assert.Error(t, ContextualCheckBlockHeader(&testHeader, blk1Index, int64(testHeader.Time)))
 
 	testHeader = blk2.Header
-	assert.NoError(t, ContextualCheckBlockHeader(&testHeader, blk1Index, int64(testHeader.Time-7201)))
+	assert.Error(t, ContextualCheckBlockHeader(&testHeader, blk1Index, int64(testHeader.Time-7201)))
 
 	blk1Index.Height = chain.GetInstance().GetParams().BIP66Height
-	assert.NoError(t, ContextualCheckBlockHeader(&testHeader, blk1Index, int64(testHeader.Time)))
+	assert.Error(t, ContextualCheckBlockHeader(&testHeader, blk1Index, int64(testHeader.Time)))
 }
