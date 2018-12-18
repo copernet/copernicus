@@ -14,6 +14,10 @@ import (
 
 func ProcessBlockHeader(headerList []*block.BlockHeader, lastIndex *blockindex.BlockIndex) error {
 	log.Debug("ProcessBlockHeader begin, header number : %d", len(headerList))
+
+	persist.CsMain.Lock()
+	defer persist.CsMain.Unlock()
+
 	lastheight := int32(-1)
 	for _, header := range headerList {
 		index, err := lblock.AcceptBlockHeader(header)

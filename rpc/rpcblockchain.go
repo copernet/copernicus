@@ -751,6 +751,9 @@ func handleGetTxOut(s *Server, cmd interface{}, closeChan <-chan struct{}) (inte
 }
 
 func handleGetTxoutSetInfo(s *Server, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
+	persist.CsMain.Lock()
+	defer persist.CsMain.Unlock()
+
 	// Write the chain state to disk, if necessary.
 	if err := disk.FlushStateToDisk(disk.FlushStateAlways, 0); err != nil {
 		return nil, err
