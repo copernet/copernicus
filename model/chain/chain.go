@@ -1,16 +1,16 @@
 package chain
 
 import (
-	"github.com/copernet/copernicus/model"
-	"sort"
-	"strings"
-	"sync"
-	"time"
-
 	"errors"
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/log"
+	"github.com/copernet/copernicus/model"
 	"github.com/copernet/copernicus/model/blockindex"
+	"sort"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/copernet/copernicus/model/pow"
 	"github.com/copernet/copernicus/model/script"
@@ -39,6 +39,7 @@ type Chain struct {
 	pindexBestHeader     *blockindex.BlockIndex
 	pindexBestHeaderLock sync.RWMutex
 
+	tip atomic.Value
 	*SyncingState
 }
 
@@ -158,18 +159,16 @@ func (c *Chain) GetChainTips() *set.Set {
 
 // Tip Returns the blIndex entry for the tip of this chain, or nullptr if none.
 func (c *Chain) Tip() *blockindex.BlockIndex {
-	active := c.active
-	if len(active) > 0 {
-		return active[len(active)-1]
+	if t := c.tip.Load(); t != nil {
+		return t.(*blockindex.BlockIndex)
 	}
 
 	return nil
 }
 
 func (c *Chain) TipHeight() int32 {
-	active := c.active
-	if len(active) > 0 {
-		return active[len(active)-1].Height
+	if t := c.tip.Load(); t != nil {
+		return t.(*blockindex.BlockIndex).Height
 	}
 
 	return 0
@@ -332,8 +331,11 @@ func (c *Chain) Height() int32 {
 func (c *Chain) SetTip(index *blockindex.BlockIndex) {
 	if index == nil {
 		c.active = []*blockindex.BlockIndex{}
+		c.tip = atomic.Value{}
 		return
 	}
+
+	newTip := index
 
 	tmp := make([]*blockindex.BlockIndex, index.Height+1)
 	copy(tmp, c.active)
@@ -343,6 +345,7 @@ func (c *Chain) SetTip(index *blockindex.BlockIndex) {
 	}
 
 	c.active = tmp
+	c.tip.Store(newTip)
 
 	c.UpdateSyncingState()
 }
@@ -585,7 +588,7 @@ func (c *Chain) AddToIndexMap(bi *blockindex.BlockIndex) error {
 		}
 		bi.ChainWork = *bi.ChainWork.Add(&bi.ChainWork, &pre.ChainWork)
 	}
-	log.Debug("AddToIndexMap:%s index height:%d", hash, bi.Height)
+
 	bi.RaiseValidity(blockindex.BlockValidTree)
 
 	c.tryUpdateIndexBestHeader(bi)
