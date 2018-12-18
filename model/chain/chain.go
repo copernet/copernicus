@@ -10,7 +10,6 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/copernet/copernicus/model/pow"
 	"github.com/copernet/copernicus/model/script"
@@ -172,27 +171,6 @@ func (c *Chain) TipHeight() int32 {
 	}
 
 	return 0
-}
-
-// IsCurrent returns whether or not the chain believes it is current.  Several
-// factors are used to guess, but the key factors that allow the chain to
-// believe it is current are:
-//  - Latest block height is after the latest checkpoint (if enabled)
-//  - Latest block has a timestamp newer than 24 hours ago
-func (c *Chain) IsCurrent() bool {
-	// Not current if the latest main (best) chain height is before the
-	// latest known good checkpoint (when checkpoints are enabled).
-	//TODO: checkpoint
-	//checkpoint := b.LatestCheckpoint()
-	//if checkpoint != nil && b.bestChain.Tip().height < checkpoint.Height {
-	//	return false
-	//}
-
-	// Not current if the latest best block has a timestamp before 24 hours ago.
-	minus24Hours := time.Unix(util.GetTimeSec(), 0).Add(-24 * time.Hour).Unix()
-	tipTime := int64(c.Tip().GetBlockTime())
-
-	return tipTime >= minus24Hours
 }
 
 func (c *Chain) GetSpendHeight(hash *util.Hash) int32 {
@@ -628,6 +606,7 @@ func (c *Chain) ChainOrphanLen() int32 {
 
 func (c *Chain) ClearActive() {
 	c.active = make([]*blockindex.BlockIndex, 100)
+	c.tip = atomic.Value{}
 }
 
 func (c *Chain) IndexMapSize() int {
