@@ -8,6 +8,7 @@ import (
 	"container/list"
 	"github.com/copernet/copernicus/logic/lblock"
 	"github.com/copernet/copernicus/model/pow"
+	"github.com/copernet/copernicus/persist"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -760,6 +761,8 @@ func (sm *SyncManager) syncPoints(peer *peer.Peer) (pindexWalk, pindexBestKnownB
 		return gChain.Tip(), pindexBestKnownBlock
 	}
 
+	persist.CsMain.RLock()
+	defer persist.CsMain.RUnlock()
 	return gChain.FindFork(pindexBestKnownBlock), pindexBestKnownBlock
 }
 
