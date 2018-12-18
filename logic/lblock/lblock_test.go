@@ -233,6 +233,14 @@ func TestAcceptBlock(t *testing.T) {
 
 	fRequested := false
 	fNewBlock := false
+	fakeBlk := chain.GetInstance().GetParams().GenesisBlock
+	_, pos, err := AcceptBlock(fakeBlk, fRequested, nil, &fNewBlock)
+	if pos != nil {
+		t.Errorf("TestAcceptBlock test 0 check fake block failed. error:%v", err)
+	}
+
+	fRequested = true
+	fNewBlock = false
 
 	genesisBlk := chain.GetInstance().GetParams().GenesisBlock
 	genesisBlkIdx, pos, err := AcceptBlock(genesisBlk, fRequested, nil, &fNewBlock)
