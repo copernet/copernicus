@@ -18,7 +18,7 @@ import (
 const (
 	AppMajor uint = 0
 	AppMinor uint = 0
-	AppPatch uint = 6
+	AppPatch uint = 7
 
 	// AppPreRelease MUST only contain characters from semanticAlphabet
 	// per the semantic versioning spec.
