@@ -3,7 +3,6 @@ package syncmanager
 import (
 	"bytes"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"github.com/copernet/copernicus/conf"
 	"github.com/copernet/copernicus/crypto"
@@ -1088,19 +1087,21 @@ func initTestEnv(t *testing.T, args []string) (dirpath string, err error) {
 		}
 	}
 
-	logConf := struct {
-		FileName string `json:"filename"`
-		Level    int    `json:"level"`
-	}{
-		FileName: logDir + "/" + conf.Cfg.Log.FileName + ".log",
-		Level:    log.GetLevel(conf.Cfg.Log.Level),
-	}
+	// TODO: net package log data race
+	//logConf := struct {
+	//	FileName string `json:"filename"`
+	//	Level    int    `json:"level"`
+	//}{
+	//	FileName: logDir + "/" + conf.Cfg.Log.FileName + ".log",
+	//	Level:    log.GetLevel(conf.Cfg.Log.Level),
+	//}
 
-	configuration, err := json.Marshal(logConf)
-	if err != nil {
-		panic(err)
-	}
-	log.Init(string(configuration))
+	//configuration, err := json.Marshal(logConf)
+	//if err != nil {
+	//	panic(err)
+	//}
+
+	//log.Init(string(configuration))
 
 	// Init UTXO DB
 	utxoDbCfg := &db.DBOption{
