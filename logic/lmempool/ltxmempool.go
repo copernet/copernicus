@@ -183,33 +183,9 @@ func HandleTxFromUndoBlock(pool *mempool.TxMempool, txs []*tx.Tx) (err error) {
 		updateMempoolForReorgAddTx(pool, txent)
 	}
 	pool.Unlock()
-}
 
-// func RemoveForReorg(nMemPoolHeight int32, flag int) {
-// 	newPool := mempool.NewTxMempool()
-// 	oldPool := mempool.GetInstance()
-// 	log.Debug("RemoveForReorg start")
-// 	mempool.SetInstance(newPool)
-// 	for _, txentry := range oldPool.GetAllTxEntry() {
-// 		txn := txentry.Tx
-// 		err := AcceptTxToMemPool(txn)
-// 		if err == nil {
-// 			accepttxn, _ := TryAcceptOrphansTxs(txn, nMemPoolHeight-1, true)
-// 			log.Debug("RemoveForReorg move %v to mempool", append(accepttxn, txn))
-// 			if !newPool.HaveTransaction(txn) {
-// 				log.Error("the tx:%s not exist mempool", txn.GetHash().String())
-// 				return
-// 			}
-// 		} else {
-// 			if errcode.IsErrorCode(err, errcode.TxErrNoPreviousOut) {
-// 				newPool.AddOrphanTx(txn, 0)
-// 			}
-// 		}
-// 	}
-// 	newPool.CleanOrphan()
-// 	CheckMempool(nMemPoolHeight - 1)
-// 	log.Debug("RemoveForReorg end")
-// }
+	return err
+}
 
 func RemoveForReorg(pool *mempool.TxMempool, nMemPoolHeight int32, flag int) {
 	view := utxo.GetUtxoCacheInstance()
