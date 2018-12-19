@@ -150,7 +150,7 @@ func RemoveTxSelf(pool *mempool.TxMempool, txs []*tx.Tx) {
 
 // HandleTxFromUndoBlock remove txs which refert to coinbase tx and add ordinary tx back to mempool.
 // pool.lock will be held.
-func HandleTxFromUndoBlock(pool *mempool.TxMempool, txs []*tx.Tx) {
+func HandleTxFromUndoBlock(pool *mempool.TxMempool, txs []*tx.Tx) (err error) {
 	acceptedTx := make([]*mempool.TxEntry, 0, len(txs))
 
 	pool.Lock()
@@ -162,15 +162,17 @@ func HandleTxFromUndoBlock(pool *mempool.TxMempool, txs []*tx.Tx) {
 			continue
 		}
 
-		txEntry, err := ltx.CheckTxBeforeAcceptToMemPool(txn, pool)
-		if err != nil {
+		txEntry, err1 := ltx.CheckTxBeforeAcceptToMemPool(txn, pool)
+		if err1 != nil {
 			log.Warn("AddUndoBlockTx: CheckTxBeforeAcceptToMemPool tx(%s) from undoblock err:%v",
-				txn.GetHash(), err)
+				txn.GetHash(), err1)
+			err = err1
 			continue
 		}
-		if err := addTxToMemPoolUnchecked(pool, txEntry); err != nil {
+		if err1 := addTxToMemPoolUnchecked(pool, txEntry); err1 != nil {
 			log.Warn("AddUndoBlockTx: addTxToMemPoolUnchecked tx(%s) from undoblock err:%v",
-				txn.GetHash(), err)
+				txn.GetHash(), err1)
+			err = err1
 			continue
 		}
 
