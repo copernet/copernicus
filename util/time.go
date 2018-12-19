@@ -134,20 +134,22 @@ func GetMedianTimeSource() *MedianTime {
 	return globalMedianTimeSource
 }
 
+func SetMockTime(time int64) {
+	atomic.StoreInt64(&mockTime, time)
+}
+
 func GetTimeSec() int64 {
-	if mockTime > 0 {
-		return mockTime
+	mockTimeSec := atomic.LoadInt64(&mockTime)
+	if mockTimeSec > 0 {
+		return mockTimeSec
 	}
 	return time.Now().Unix()
 }
 
-func SetMockTime(time int64) {
-	mockTime = time
-}
-
 func GetTimeMicroSec() int64 {
-	if mockTime > 0 {
-		return mockTime * 1000 * 1000
+	mockTimeSec := atomic.LoadInt64(&mockTime)
+	if mockTimeSec > 0 {
+		return mockTimeSec * 1000 * 1000
 	}
 	return time.Now().UnixNano() / 1000
 }
