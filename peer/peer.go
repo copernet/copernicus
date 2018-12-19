@@ -1679,18 +1679,12 @@ func (p *Peer) PeerHasHeader(idx *blockindex.BlockIndex) bool {
 		p.UpdateLastAnnouncedBlock(hash)
 	}
 	pindex := gChain.FindBlockIndex(*hash)
-	if pindex == nil {
-		return false
-	}
-	if idx == pindex.GetAncestor(idx.Height) {
+	if pindex != nil && idx == pindex.GetAncestor(idx.Height) {
 		return true
 	}
 
 	idxBestSent := p.IndexBestHeaderSent()
-	if idxBestSent == nil {
-		return false
-	}
-	if idx == idxBestSent.GetAncestor(idx.Height) {
+	if idxBestSent != nil && idx == idxBestSent.GetAncestor(idx.Height) {
 		return true
 	}
 	return false
