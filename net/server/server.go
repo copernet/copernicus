@@ -1429,6 +1429,8 @@ func (s *Server) handleDonePeerMsg(state *peerState, sp *serverPeer) {
 
 	// If we get here it means that either we didn't know about the peer
 	// or we purposefully deleted it.
+
+	delete(s.connectedPeers, sp.Addr())
 }
 
 // handleBanPeerMsg deals with banning peers.  It is invoked from the
@@ -2047,6 +2049,7 @@ func (s *Server) peerDoneHandler(sp *serverPeer) {
 			log.Debug("Evicted %d from peer %v (id %d)", numEvicted, sp, sp.ID())
 		}
 	}
+
 	close(sp.quit)
 }
 
