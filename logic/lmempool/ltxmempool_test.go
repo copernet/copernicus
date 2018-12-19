@@ -336,12 +336,12 @@ func generateKeys(keyBytes []byte) (crypto.PrivateKey, crypto.PublicKey) {
 // for testing.  Also, the fake chain is populated with the returned spendable
 // outputs so the caller can easily create new valid transactions which build
 // off of it.
-func newPoolHarness(chainParams *model.BitcoinParams) (*poolHarness, []spendableOutput, error) {
+func newPoolHarness(chainParams *model.BitcoinParams) (*poolHarness, []spendableOutput, *tx.Tx, error) {
 	// Use a hard coded key pair for deterministic results.
 	keyBytes, err := hex.DecodeString("700868df1838811ffbdf918fb482c1f7e" +
 		"ad62db4b97bd7012c23e726485e577d")
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	//signKey, signPub := btcec.PrivKeyFromBytes(btcec.S256(), keyBytes)
 	signKey, signPub := generateKeys(keyBytes)
@@ -353,13 +353,13 @@ func newPoolHarness(chainParams *model.BitcoinParams) (*poolHarness, []spendable
 	var payAddr cashaddr.Address
 	payAddr, err = cashaddr.NewCashAddressPubKeyHash(signPub.ToHash160(), chainParams)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	// payAddr := payPubKeyAddr.AddressPubKeyHash()
 	// pkScript, err := txscript.PayToAddrScript(payAddr)
 	pkScript, err := cashaddr.CashPayToAddrScript(payAddr)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	// Create a new fake chain and harness bound to it.
 	chain := &fakeChain{utxos: utxo.NewEmptyCoinsMap()}
@@ -386,7 +386,7 @@ func newPoolHarness(chainParams *model.BitcoinParams) (*poolHarness, []spendable
 	curHeight := harness.chain.BestHeight()
 	coinbase, err := harness.CreateCoinbaseTx(curHeight+1, numOutputs)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	//harness.chain.utxos.AddTxOuts(coinbase, curHeight+1)
 	for outIdx := 0; outIdx < coinbase.GetOutsCount(); outIdx++ {
@@ -403,7 +403,7 @@ func newPoolHarness(chainParams *model.BitcoinParams) (*poolHarness, []spendable
 
 	cmcopy := harness.chain.utxos.DeepCopy()
 	utxo.GetUtxoCacheInstance().UpdateCoins(cmcopy, &util.Hash{})
-	return &harness, outputs, nil
+	return &harness, outputs, coinbase, nil
 }
 
 // testContext houses a test-related state that is useful to pass to helper
@@ -464,7 +464,7 @@ func TestSimpleOrphanChain(t *testing.T) {
 	defer cleanup()
 	// ltx.ScriptVerifyInit()
 
-	harness, spendableOuts, err := newPoolHarness(&model.MainNetParams)
+	harness, spendableOuts, _, err := newPoolHarness(&model.MainNetParams)
 	if err != nil {
 		t.Fatalf("unable to create test pool: %v", err)
 	}
@@ -507,14 +507,9 @@ func TestSimpleOrphanChain(t *testing.T) {
 	// acceptedTxns, err := harness.txPool.ProcessTransaction(chainedTxns[0],
 	// 	false, false, 0)
 	// acceptedTxns, _, err := service.ProcessTransaction(chainedTxns[0], 0)
-	err = lmempool.AcceptTxToMemPool(harness.txPool, chainedTxns[0], false)
-	if err != nil {
-		t.Fatalf("ProcessTransaction: failed to accept valid "+
-			"orphan %v", err)
-	}
-	lmempool.CheckMempool(harness.txPool, harness.chain.BestHeight())
-	acceptedTxns, _ := lmempool.TryAcceptOrphansTxs(harness.txPool, chainedTxns[0], harness.chain.BestHeight(), false)
-	if len(acceptedTxns) != len(chainedTxns)-1 {
+
+	acceptedTxns, _, _, _ := lmempool.AcceptNewTxToMempool(harness.txPool, chainedTxns[0], harness.chain.BestHeight(), -1)
+	if len(acceptedTxns) != len(chainedTxns) {
 		t.Fatalf("ProcessTransaction: reported accepted transactions "+
 			"length does not match expected -- got %d, want %d",
 			len(acceptedTxns), len(chainedTxns))
@@ -558,7 +553,7 @@ func TestOrphanReject(t *testing.T) {
 	defer cleanup()
 	// ltx.ScriptVerifyInit()
 
-	harness, outputs, err := newPoolHarness(&model.MainNetParams)
+	harness, outputs, _, err := newPoolHarness(&model.MainNetParams)
 	if err != nil {
 		t.Fatalf("unable to create test pool: %v", err)
 	}
@@ -931,7 +926,7 @@ func TestCheckSpend(t *testing.T) {
 	defer cleanup()
 	// ltx.ScriptVerifyInit()
 
-	harness, outputs, err := newPoolHarness(&model.MainNetParams)
+	harness, outputs, _, err := newPoolHarness(&model.MainNetParams)
 	if err != nil {
 		t.Fatalf("unable to create test pool: %v", err)
 	}
@@ -1136,7 +1131,7 @@ func TestRemoveForReorg(t *testing.T) {
 	cleanup := initTestEnv()
 	defer cleanup()
 
-	harness, outputs, err := newPoolHarness(&model.MainNetParams)
+	harness, outputs, _, err := newPoolHarness(&model.MainNetParams)
 	if err != nil {
 		t.Fatalf("unable to create test pool: %v", err)
 	}
@@ -1151,7 +1146,7 @@ func TestRemoveForReorg(t *testing.T) {
 	generateTestBlocks(t, script.NewScriptRaw(harness.payScript))
 
 	for _, tmpTx := range chainedTxns {
-		err := lmempool.AcceptTxToMemPool(harness.txPool, tmpTx, false)
+		err := lmempool.AcceptTxToMemPool(harness.txPool, tmpTx, true)
 		if err != nil {
 			t.Fatalf("ProcessTransaction: failed to accept "+
 				"tx(%s): %v", tmpTx.GetHash(), err)
@@ -1323,5 +1318,36 @@ func perm(a []*tx.Tx, f func([]*tx.Tx), i int) {
 		a[i], a[j] = a[j], a[i]
 		perm(a, f, i+1)
 		a[i], a[j] = a[j], a[i]
+	}
+}
+
+func TestHandleTxFromUndoBlock(t *testing.T) {
+	cleanup := initTestEnv()
+	defer cleanup()
+
+	harness, outputs, coinbase, err := newPoolHarness(&model.MainNetParams)
+	assert.Nil(t, err)
+
+	maxOrphans := uint32(mempool.DefaultMaxOrphanTransaction)
+	chainedTxs, err := harness.CreateTxChain(outputs[0], maxOrphans)
+	assert.Nil(t, err)
+
+	generateTestBlocks(t, script.NewScriptRaw(harness.payScript))
+
+	shuffle(chainedTxs)
+
+	newtrans := []*tx.Tx{coinbase}
+	newtrans = append(newtrans, chainedTxs...)
+	newtrans, err = lmempool.TTORSort(newtrans)
+	assert.Nil(t, err)
+	assert.True(t, lmempool.IsTTORSorted(newtrans))
+
+	assert.Nil(t, lmempool.HandleTxFromUndoBlock(mempool.NewTxMempool(), newtrans))
+}
+
+func shuffle(trans []*tx.Tx) {
+	for i := 0; i < len(trans); i++ {
+		j := rand.Int31n(int32(len(trans)))
+		trans[i], trans[j] = trans[j], trans[i]
 	}
 }
